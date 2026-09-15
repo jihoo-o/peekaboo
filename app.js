@@ -2,9 +2,11 @@
 // S1: 카메라 + MediaPipe ObjectDetector 루프 + 디버그 오버레이
 // S2: 타깃 락(가장 큰 허용 클래스 → IoU 매칭) + One Euro 필터 스무딩
 // S3: 2D 캔버스 캐릭터 등장(peek/idle/hide) + bbox 사각형 오클루전
+// S4: InteractiveSegmenter(MagicTouch) 마스크 오클루전 (EMA + 블러, bbox IoU 게이트)
 
 const VISION_VERSION = '0.10.35';
 const VISION_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VERSION}`;
+const SEGMENTER_MODEL = 'https://storage.googleapis.com/mediapipe-models/interactive_segmenter/magic_touch/float32/1/magic_touch.tflite';
 const DETECTOR_MODEL = 'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite';
 
 // S2: 락 대상 클래스
@@ -13,7 +15,14 @@ const LOCK_MIN_SCORE = 0.5;
 const LOCK_MIN_IOU = 0.3;
 const LOCK_LOST_MS = 1000;
 
+// S4: 마스크 설정
+const SEG_INTERVAL_MS = 100;
+const MASK_EMA = 0.5;         // 깜빡임 심하면 0.7(prev)/0.3(new)
+const MASK_MIN_IOU = 0.2;     // 마스크-bbox IoU가 이보다 낮으면 그 마스크는 버림
+const MASK_BLUR_PX = 2;
+
 const params = new URLSearchParams(location.search);
+const USE_MASK = params.get('mask') !== '0';
 const RES = params.get('res') === '480' ? { width: { ideal: 640 }, height: { ideal: 480 } }
                                          : { width: { ideal: 1280 }, height: { ideal: 720 } };
 
@@ -36,6 +45,10 @@ const state = {
   missMs: 0,
   // S3
   char: { state: 'hidden', since: 0, progress: 0 }, // hidden → peek → idle → hide
+  // S4
+  segTimes: [], segBusy: false, lastSegAt: 0,
+  mask: null,          // { w, h, alpha: Float32Array } EMA 마스크 (비디오 해상도)
+  maskRejects: 0,
 };
 window.__peekaboo = state;
 
@@ -142,7 +155,7 @@ async function startCamera() {
 // ---- 검출기 ----
 let detector = null;
 async function createDetector() {
-  const { FilesetResolver, ObjectDetector } = await import(`${VISION_CDN}/vision_bundle.mjs`);
+  const { FilesetResolver, ObjectDetector, InteractiveSegmenter } = await import(`${VISION_CDN}/vision_bundle.mjs`);
   const fileset = await FilesetResolver.forVisionTasks(`${VISION_CDN}/wasm`);
   const opts = (delegate) => ({
     baseOptions: { modelAssetPath: DETECTOR_MODEL, delegate },
@@ -156,7 +169,7 @@ async function createDetector() {
     detector = await ObjectDetector.createFromOptions(fileset, opts('CPU'));
     state.delegate = 'CPU';
   }
-  return { ObjectDetector, fileset };
+  visionModule = { InteractiveSegmenter, fileset }; // S4
 }
 
 // ---- 검출 루프 (requestVideoFrameCallback) ----
@@ -173,7 +186,98 @@ function onVideoFrame(now) {
     state.detTimes.push(performance.now());
     updateTracker(state.detections, performance.now()); // S2
   }
+  maybeSegment(performance.now()); // S4
   video.requestVideoFrameCallback(onVideoFrame);
+}
+
+// ---- S4: 세그멘테이션 마스크 ----
+let segmenter = null;
+let visionModule = null; // S4: createDetector에서 채움
+async function createSegmenter() {
+  if (!USE_MASK) return;
+  const { InteractiveSegmenter, fileset } = visionModule;
+  const opts = (delegate) => ({
+    baseOptions: { modelAssetPath: SEGMENTER_MODEL, delegate },
+    outputCategoryMask: true, outputConfidenceMasks: false,
+  });
+  try { segmenter = await InteractiveSegmenter.createFromOptions(fileset, opts('GPU')); }
+  catch (e) { console.warn('segmenter GPU failed, CPU fallback', e); segmenter = await InteractiveSegmenter.createFromOptions(fileset, opts('CPU')); }
+}
+
+const maskCanvas = document.createElement('canvas'); // 비디오 해상도, 알파 = 마스크
+const maskCtx = maskCanvas.getContext('2d');
+const clipCanvas = document.createElement('canvas'); // video를 마스크로 클리핑한 결과
+const clipCtx = clipCanvas.getContext('2d');
+
+// 락 상태일 때만 100ms 간격으로 bbox 중심점 프롬프트 세그멘테이션
+function maybeSegment(now) {
+  if (!segmenter || !state.lock || state.segBusy || now - state.lastSegAt < SEG_INTERVAL_MS) return;
+  const b = state.lock.box, vw = video.videoWidth, vh = video.videoHeight;
+  const kx = (b.x + b.w / 2) / vw, ky = (b.y + b.h / 2) / vh;
+  if (!(kx > 0 && kx < 1 && ky > 0 && ky < 1)) return;
+  state.segBusy = true; state.lastSegAt = now;
+  const box = { ...b };
+  try {
+    segmenter.segment(video, { keypoint: { x: kx, y: ky } }, (result) => {
+      try { ingestMask(result.categoryMask, box); } finally { state.segBusy = false; }
+    });
+  } catch (e) { console.warn('segment failed', e); state.segBusy = false; }
+}
+
+// 카테고리 마스크 → 알파 EMA. bbox와 IoU < 0.2면 버림.
+// MagicTouch 카테고리 마스크는 선택 물체=0, 배경=255로 온다(실측). 혹시 반대여도 되도록 bbox와 더 잘 맞는 극성을 고른다.
+function ingestMask(mpMask, box) {
+  if (!mpMask) return;
+  const w = mpMask.width, h = mpMask.height;
+  const data = mpMask.getAsUint8Array();
+  const sx = w / video.videoWidth, sy = h / video.videoHeight;
+  const bx0 = box.x * sx, by0 = box.y * sy, bx1 = (box.x + box.w) * sx, by1 = (box.y + box.h) * sy;
+  let zero = 0, zeroIn = 0, nz = 0, nzIn = 0;
+  for (let y = 0; y < h; y++) {
+    const inY = y >= by0 && y < by1;
+    for (let x = 0; x < w; x++) {
+      const inBox = inY && x >= bx0 && x < bx1;
+      if (data[y * w + x]) { nz++; if (inBox) nzIn++; } else { zero++; if (inBox) zeroIn++; }
+    }
+  }
+  const boxArea = (bx1 - bx0) * (by1 - by0);
+  const iouZero = zeroIn / (zero + boxArea - zeroIn || 1);
+  const iouNz = nzIn / (nz + boxArea - nzIn || 1);
+  const fgIsZero = iouZero >= iouNz;
+  if (Math.max(iouZero, iouNz) < MASK_MIN_IOU) { state.maskRejects++; return; }
+
+  if (!state.mask || state.mask.w !== w || state.mask.h !== h) {
+    state.mask = { w, h, alpha: new Float32Array(w * h) };
+    maskCanvas.width = w; maskCanvas.height = h;
+  }
+  const a = state.mask.alpha;
+  for (let i = 0; i < a.length; i++) {
+    const fg = fgIsZero ? (data[i] === 0 ? 1 : 0) : (data[i] ? 1 : 0);
+    a[i] = MASK_EMA * a[i] + (1 - MASK_EMA) * fg;
+  }
+  // 알파 채널로 굽기
+  const img = maskCtx.createImageData(w, h);
+  const px = img.data;
+  for (let i = 0; i < a.length; i++) px[i * 4 + 3] = a[i] * 255;
+  maskCtx.putImageData(img, 0, 0);
+  state.segTimes.push(performance.now());
+}
+
+// (3) video를 마스크로 클리핑해 캐릭터 위에 덮기. 마스크가 없으면 false → 사각형 폴백.
+function occludeWithMask(s, ox, oy, vw, vh) {
+  if (!state.mask) return false;
+  if (clipCanvas.width !== vw || clipCanvas.height !== vh) { clipCanvas.width = vw; clipCanvas.height = vh; }
+  clipCtx.globalCompositeOperation = 'source-over';
+  clipCtx.filter = 'none';
+  clipCtx.clearRect(0, 0, vw, vh);
+  clipCtx.drawImage(video, 0, 0, vw, vh);
+  clipCtx.globalCompositeOperation = 'destination-in';
+  clipCtx.filter = `blur(${MASK_BLUR_PX}px)`;
+  clipCtx.drawImage(maskCanvas, 0, 0, vw, vh);
+  clipCtx.filter = 'none';
+  clipCtx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(clipCanvas, ox, oy, vw * s, vh * s);
+  return true;
 }
 
 // ---- S3: 캐릭터 ----
@@ -249,8 +353,9 @@ function composite(t) {
   const p = characterPlacement(t);
   if (p && state.char.state !== 'hidden') {
     drawCharacter(ctx, p.cx, p.cy, p.size, t);
-    occlude(p, s, ox, oy, vw, vh);
+    if (!(USE_MASK && occludeWithMask(s, ox, oy, vw, vh))) occlude(p, s, ox, oy, vw, vh); // S4 → S3 폴백
   }
+  if (!state.lock) state.mask = null; // S4: 락 해제 시 마스크 폐기
 }
 
 function occlude(p, s, ox, oy, vw, vh) {
@@ -296,9 +401,10 @@ function render(t) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (video.videoWidth) { composite(t); if (params.get('debug') !== '0') drawDetections(t); } // S3
   hud.textContent =
-    `det ${hz(state.detTimes, t)} Hz | fps ${hz(state.frameTimes, t)} | ${state.delegate}\n` +
+    `det ${hz(state.detTimes, t)} Hz | seg ${hz(state.segTimes, t)} Hz | fps ${hz(state.frameTimes, t)} | ${state.delegate}\n` +
     `video ${video.videoWidth}x${video.videoHeight}\n` +
-    `lock ${state.lock ? state.lock.label : '-'} | miss ${(state.missMs / 1000).toFixed(1)}s | char ${state.char.state}` +
+    `lock ${state.lock ? state.lock.label : '-'} | miss ${(state.missMs / 1000).toFixed(1)}s | char ${state.char.state}\n` +
+    `mask ${USE_MASK ? (state.mask ? 'on' : 'none') : 'off'} | rej ${state.maskRejects}` +
     (state.error ? `\nERR ${state.error}` : '');
   requestAnimationFrame(render);
 }
@@ -311,6 +417,7 @@ async function main() {
     await startCamera();
     msg.textContent = '모델 로딩 중…';
     await createDetector();
+    await createSegmenter(); // S4
     msg.textContent = '';
     video.requestVideoFrameCallback(onVideoFrame);
   } catch (e) {
