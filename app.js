@@ -1,9 +1,16 @@
 // Peekaboo AR — 물체 뒤 캐릭터. 단계 번호(S1, S2, ...)는 각 코드가 추가된 단계다.
 // S1: 카메라 + MediaPipe ObjectDetector 루프 + 디버그 오버레이
+// S2: 타깃 락(가장 큰 허용 클래스 → IoU 매칭) + One Euro 필터 스무딩
 
 const VISION_VERSION = '0.10.35';
 const VISION_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VERSION}`;
 const DETECTOR_MODEL = 'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite';
+
+// S2: 락 대상 클래스
+const ALLOWED = ['cup', 'bottle', 'book', 'bowl', 'vase', 'potted plant', 'mouse', 'laptop'];
+const LOCK_MIN_SCORE = 0.5;
+const LOCK_MIN_IOU = 0.3;
+const LOCK_LOST_MS = 1000;
 
 const params = new URLSearchParams(location.search);
 const RES = params.get('res') === '480' ? { width: { ideal: 640 }, height: { ideal: 480 } }
@@ -23,6 +30,9 @@ const state = {
   frameTimes: [],      // 최근 1초 렌더 타임스탬프
   delegate: '-',
   error: null,
+  // S2
+  lock: null,          // { label, raw:{x,y,w,h}, box:{x,y,w,h}(스무딩), lastSeen }
+  missMs: 0,
 };
 window.__peekaboo = state;
 
@@ -30,6 +40,74 @@ window.__peekaboo = state;
 function hz(times, now) {
   while (times.length && now - times[0] > 1000) times.shift();
   return times.length;
+}
+
+// ---- S2: One Euro Filter (Casiez et al., CHI 2012) ----
+class OneEuro {
+  constructor(minCutoff = 1.0, beta = 0.007, dCutoff = 1.0) {
+    this.minCutoff = minCutoff; this.beta = beta; this.dCutoff = dCutoff;
+    this.x = null; this.dx = 0; this.t = null;
+  }
+  static alpha(cutoff, dt) { const tau = 1 / (2 * Math.PI * cutoff); return 1 / (1 + tau / dt); }
+  filter(x, t) {
+    if (this.x === null) { this.x = x; this.t = t; return x; }
+    const dt = Math.max((t - this.t) / 1000, 1e-3); this.t = t;
+    const dxRaw = (x - this.x) / dt;
+    const aD = OneEuro.alpha(this.dCutoff, dt);
+    this.dx = aD * dxRaw + (1 - aD) * this.dx;
+    const cutoff = this.minCutoff + this.beta * Math.abs(this.dx);
+    const a = OneEuro.alpha(cutoff, dt);
+    this.x = a * x + (1 - a) * this.x;
+    return this.x;
+  }
+}
+
+// ---- S2: 타깃 락 트래커 ----
+function iou(a, b) {
+  const ix = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+  const iy = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+  const inter = ix * iy;
+  return inter / (a.w * a.h + b.w * b.h - inter || 1);
+}
+
+function makeFilters() {
+  return { x: new OneEuro(), y: new OneEuro(), w: new OneEuro(), h: new OneEuro() };
+}
+
+function updateTracker(dets, now) {
+  const lock = state.lock;
+  if (!lock) {
+    // 락 없음: 허용 클래스 중 score>=0.5, 면적 최대
+    let best = null;
+    for (const d of dets) {
+      if (!ALLOWED.includes(d.label) || d.score < LOCK_MIN_SCORE) continue;
+      if (!best || d.w * d.h > best.w * best.h) best = d;
+    }
+    if (best) {
+      const f = makeFilters();
+      state.lock = {
+        label: best.label, raw: { ...best }, filters: f, lastSeen: now,
+        box: { x: f.x.filter(best.x, now), y: f.y.filter(best.y, now), w: f.w.filter(best.w, now), h: f.h.filter(best.h, now) },
+      };
+      state.missMs = 0;
+    }
+    return;
+  }
+  // 락 상태: IoU 최대(>=0.3) 검출로 갱신
+  let best = null, bestIou = LOCK_MIN_IOU;
+  for (const d of dets) {
+    const v = iou(lock.raw, d);
+    if (v >= bestIou) { best = d; bestIou = v; }
+  }
+  if (best) {
+    lock.raw = { ...best }; lock.label = best.label; lock.lastSeen = now;
+    const f = lock.filters;
+    lock.box = { x: f.x.filter(best.x, now), y: f.y.filter(best.y, now), w: f.w.filter(best.w, now), h: f.h.filter(best.h, now) };
+    state.missMs = 0;
+  } else {
+    state.missMs = now - lock.lastSeen;
+    if (state.missMs >= LOCK_LOST_MS) { state.lock = null; state.missMs = 0; }
+  }
 }
 
 // video는 object-fit: cover로 표시된다. videoWidth/Height → 화면(canvas) 좌표 변환.
@@ -89,6 +167,7 @@ function onVideoFrame(now) {
       label: d.categories[0]?.categoryName ?? '?', score: d.categories[0]?.score ?? 0,
     }));
     state.detTimes.push(performance.now());
+    updateTracker(state.detections, performance.now()); // S2
   }
   video.requestVideoFrameCallback(onVideoFrame);
 }
@@ -97,10 +176,10 @@ function onVideoFrame(now) {
 function drawDetections(t) {
   const { s, ox, oy } = coverTransform();
   ctx.font = `${14 * (canvas.width / canvas.clientWidth)}px ui-monospace, monospace`;
-  ctx.lineWidth = 2;
   for (const d of state.detections) {
     const x = ox + d.x * s, y = oy + d.y * s, w = d.w * s, h = d.h * s;
-    ctx.strokeStyle = 'rgba(255,255,255,.8)';
+    ctx.lineWidth = 1; // S2: 락되지 않은 검출은 얇게
+    ctx.strokeStyle = 'rgba(255,255,255,.5)';
     ctx.strokeRect(x, y, w, h);
     const label = `${d.label} ${d.score.toFixed(2)}`;
     ctx.fillStyle = 'rgba(0,0,0,.6)';
@@ -108,6 +187,20 @@ function drawDetections(t) {
     ctx.fillStyle = '#fff';
     ctx.fillText(label, x + 4, y - 4);
   }
+  // S2: 락된 bbox(스무딩 후)는 굵게
+  const L = state.lock;
+  if (L) {
+    const b = L.box;
+    ctx.lineWidth = 4; ctx.strokeStyle = '#ffd54f';
+    ctx.strokeRect(ox + b.x * s, oy + b.y * s, b.w * s, b.h * s);
+  }
+}
+
+// S2: 화면 좌표계의 락 bbox (스무딩 후). 없으면 null.
+function lockedScreenBox() {
+  const L = state.lock; if (!L) return null;
+  const { s, ox, oy } = coverTransform();
+  return { x: ox + L.box.x * s, y: oy + L.box.y * s, w: L.box.w * s, h: L.box.h * s };
 }
 
 function render(t) {
@@ -116,7 +209,8 @@ function render(t) {
   if (video.videoWidth) drawDetections(t);
   hud.textContent =
     `det ${hz(state.detTimes, t)} Hz | fps ${hz(state.frameTimes, t)} | ${state.delegate}\n` +
-    `video ${video.videoWidth}x${video.videoHeight}` +
+    `video ${video.videoWidth}x${video.videoHeight}\n` +
+    `lock ${state.lock ? state.lock.label : '-'} | miss ${(state.missMs / 1000).toFixed(1)}s` +
     (state.error ? `\nERR ${state.error}` : '');
   requestAnimationFrame(render);
 }
