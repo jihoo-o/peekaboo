@@ -4,6 +4,7 @@
 // S3: 2D 캔버스 캐릭터 등장(peek/idle/hide) + bbox 사각형 오클루전
 // S4: InteractiveSegmenter(MagicTouch) 마스크 오클루전 (EMA + 블러, bbox IoU 게이트)
 // S5: 탭 → wave, 셔터 → 공유/저장, 안내 문구
+// S7: 게임화 — 최초 확정 물체 기억(localStorage), 5초 유지 후 등장, 검댕이 캐릭터, 탭 수집/도감
 
 const VISION_VERSION = '0.10.35';
 const VISION_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VERSION}`;
@@ -22,8 +23,26 @@ const MASK_EMA = 0.5;         // 깜빡임 심하면 0.7(prev)/0.3(new)
 const MASK_MIN_IOU = 0.2;     // 마스크-bbox IoU가 이보다 낮으면 그 마스크는 버림
 const MASK_BLUR_PX = 2;
 
+// S7: 게임 설정
+const CONFIRM_HITS = 3;       // 연속 매칭 n회 → "타깃 확실"
+const HOLD_MS = 5000;         // 확정 상태를 이만큼 유지해야 등장
+const SPRITES = [             // 캐릭터 6종 = 별사탕 색. 수집 대상 식별자.
+  { id: 'pink',   color: '#f48fb1', name: '분홍' },
+  { id: 'green',  color: '#81c784', name: '초록' },
+  { id: 'yellow', color: '#fff176', name: '노랑' },
+  { id: 'blue',   color: '#64b5f6', name: '파랑' },
+  { id: 'orange', color: '#ffb74d', name: '주황' },
+  { id: 'purple', color: '#b39ddb', name: '보라' },
+];
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('peekaboo.' + k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('peekaboo.' + k, JSON.stringify(v)); } catch {} },
+  clear() { try { localStorage.removeItem('peekaboo.home'); localStorage.removeItem('peekaboo.collection'); } catch {} },
+};
+
 const params = new URLSearchParams(location.search);
 const USE_MASK = params.get('mask') !== '0';
+if (params.get('reset') === '1') store.clear(); // S7: ?reset=1 → 기억·도감 초기화
 const RES = params.get('res') === '480' ? { width: { ideal: 640 }, height: { ideal: 480 } }
                                          : { width: { ideal: 1280 }, height: { ideal: 720 } };
 
@@ -44,8 +63,12 @@ const state = {
   // S2
   lock: null,          // { label, raw:{x,y,w,h}, box:{x,y,w,h}(스무딩), lastSeen }
   missMs: 0,
-  // S3
-  char: { state: 'hidden', since: 0, progress: 0 }, // hidden → peek → idle → hide
+  // S3 (S7에서 확장): hidden → charging → peek → idle ⇄ wave/collect → hide
+  char: { state: 'hidden', since: 0, progress: 0, sprite: null },
+  // S7
+  home: store.get('home', null),            // { label, savedAt } 이 공간에서 최초로 확정된 물체
+  collection: store.get('collection', []),  // [{ id, label, at }]
+  hits: 0,                                  // 현재 락의 연속 매칭 횟수
   // S4
   segTimes: [], segBusy: false, lastSegAt: 0,
   mask: null,          // { w, h, alpha: Float32Array } EMA 마스크 (비디오 해상도)
@@ -99,7 +122,9 @@ function updateTracker(dets, now) {
     // 락 없음: 허용 클래스 중 score>=0.5, 면적 최대
     let best = null;
     for (const d of dets) {
-      if (!ALLOWED.includes(d.label) || d.score < LOCK_MIN_SCORE) continue;
+      // S7: 기억한 물체가 있으면 그 클래스만, 없으면 ALLOWED
+      const ok = state.home ? d.label === state.home.label : ALLOWED.includes(d.label);
+      if (!ok || d.score < LOCK_MIN_SCORE) continue;
       if (!best || d.w * d.h > best.w * best.h) best = d;
     }
     if (best) {
@@ -109,6 +134,7 @@ function updateTracker(dets, now) {
         box: { x: f.x.filter(best.x, now), y: f.y.filter(best.y, now), w: f.w.filter(best.w, now), h: f.h.filter(best.h, now) },
       };
       state.missMs = 0;
+      state.hits = 1; // S7
     }
     return;
   }
@@ -123,9 +149,14 @@ function updateTracker(dets, now) {
     const f = lock.filters;
     lock.box = { x: f.x.filter(best.x, now), y: f.y.filter(best.y, now), w: f.w.filter(best.w, now), h: f.h.filter(best.h, now) };
     state.missMs = 0;
+    state.hits++; // S7
+    if (state.hits >= CONFIRM_HITS && !state.home) { // S7: 최초로 확정된 물체를 기억
+      state.home = { label: lock.label, savedAt: Date.now() };
+      store.set('home', state.home);
+    }
   } else {
     state.missMs = now - lock.lastSeen;
-    if (state.missMs >= LOCK_LOST_MS) { state.lock = null; state.missMs = 0; }
+    if (state.missMs >= LOCK_LOST_MS) { state.lock = null; state.missMs = 0; state.hits = 0; }
   }
 }
 
@@ -283,26 +314,49 @@ function occludeWithMask(s, ox, oy, vw, vh) {
   return true;
 }
 
-// ---- S3: 캐릭터 ----
-const PEEK_MS = 600, HIDE_MS = 300, WAVE_MS = 800; // S5: wave
-const easeOutBack = (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+// ---- S3/S7: 캐릭터 ----
+const PEEK_MS = 1600, HIDE_MS = 300, WAVE_MS = 800, COLLECT_MS = 900; // S7: peek을 천천히
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const confirmed = () => !!state.lock && state.hits >= CONFIRM_HITS; // S7: 타깃 확실
 
-// 락 여부에 따라 상태 전이. progress 0=숨김(bbox.y+0.6h), 1=완전 등장(bbox.y+0.15h)
+function isCollected(id) { return state.collection.some((c) => c.id === id); }
+
+// S7: 등장할 캐릭터 고르기 — 미수집이 남아 있으면 70% 확률로 미수집 중에서
+function pickSprite() {
+  const left = SPRITES.filter((s) => !isCollected(s.id));
+  const pool = left.length && Math.random() < 0.7 ? left : SPRITES;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// 상태 전이. progress 0=숨김(bbox.y+0.6h), 1=완전 등장(bbox.y+0.15h)
 function updateCharacter(now) {
   const c = state.char;
   const locked = !!state.lock;
-  if (locked && (c.state === 'hidden' || c.state === 'hide')) { c.state = 'peek'; c.since = now; }
-  if (!locked && (c.state === 'peek' || c.state === 'idle' || c.state === 'wave')) { c.state = 'hide'; c.since = now; }
+  if (!locked && c.state !== 'hidden' && c.state !== 'hide') {
+    if (c.state === 'charging') { c.state = 'hidden'; c.progress = 0; } // 아직 안 나왔으면 바로 숨김
+    else { c.state = 'hide'; c.since = now; }
+  }
+  if (confirmed() && (c.state === 'hidden' || c.state === 'hide')) { // S7: 확정되면 충전 시작
+    c.state = 'charging'; c.since = now; c.progress = 0; c.sprite = pickSprite();
+  }
   const el = now - c.since;
   switch (c.state) {
+    case 'charging': // S7: 5초 유지 → peek
+      c.progress = 0;
+      if (el >= HOLD_MS) { c.state = 'peek'; c.since = now; }
+      break;
     case 'peek':
-      c.progress = easeOutBack(Math.min(el / PEEK_MS, 1));
+      c.progress = easeOutCubic(Math.min(el / PEEK_MS, 1));
       if (el >= PEEK_MS) { c.state = 'idle'; c.since = now; c.progress = 1; }
       break;
     case 'idle': c.progress = 1; break;
-    case 'wave': // S5: 0.8초 동안 팔 흔들기 + 살짝 점프
+    case 'wave': // S5: 0.8초 동안 흔들기 + 살짝 점프
       c.progress = 1;
       if (el >= WAVE_MS) { c.state = 'idle'; c.since = now; }
+      break;
+    case 'collect': // S7: 수집 연출
+      c.progress = 1;
+      if (el >= COLLECT_MS) { c.state = 'idle'; c.since = now; }
       break;
     case 'hide':
       c.progress = 1 - Math.min(el / HIDE_MS, 1);
@@ -312,39 +366,98 @@ function updateCharacter(now) {
   }
 }
 
-// 동그란 파스텔 몸 + 눈(깜빡임) + 볼 + 작은 팔. (cx, cy)=하단 중심, size=폭.
-function drawCharacter(ctx, cx, cy, size, t, waving = false) {
-  const r = size / 2;
-  const bodyCy = cy - r;             // 몸 중심
-  const blink = (t % 3200) < 120;    // 3.2초마다 120ms 깜빡
+// S7: 별사탕(콘페이토). (x,y) 중심, rr 반지름
+function drawCandy(ctx, x, y, rr, color, t) {
   ctx.save();
-  // 팔
-  ctx.strokeStyle = '#f6a6b2'; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(3, size * 0.09);
-  const armY = bodyCy + r * 0.15, wave = Math.sin(t / 250) * 0.15;
-  ctx.beginPath(); ctx.moveTo(cx - r * 0.85, armY); ctx.lineTo(cx - r * 1.25, armY - r * (0.35 + wave)); ctx.stroke();
-  if (waving) { // S5: 오른팔을 머리 위로 올려 좌우로 흔들기
-    const swing = Math.sin(t / 60) * 0.35;
-    ctx.beginPath(); ctx.moveTo(cx + r * 0.85, armY - r * 0.2); ctx.lineTo(cx + r * (1.1 + swing), armY - r * 1.2); ctx.stroke();
-  } else {
-    ctx.beginPath(); ctx.moveTo(cx + r * 0.85, armY); ctx.lineTo(cx + r * 1.25, armY - r * (0.35 - wave)); ctx.stroke();
+  ctx.translate(x, y); ctx.rotate(t / 1500);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2, r = i % 2 ? rr : rr * 0.62;
+    ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  for (const [dx, dy] of [[-0.3, -0.25], [0.25, -0.1], [-0.05, 0.3]]) { ctx.beginPath(); ctx.arc(dx * rr, dy * rr, rr * 0.13, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+}
+
+// S7: 검댕이 — 까만 털뭉치 몸 + 큰 흰 눈. (cx, cy)=하단 중심, size=폭.
+// opts: { sprite, collected, waving, collecting, collectT }
+function drawCharacter(ctx, cx, cy, size, t, opts = {}) {
+  const r = size / 2;
+  const bodyCy = cy - r;
+  const blink = (t % 3400) < 110;
+  const wobble = opts.waving ? Math.sin(t / 60) * 0.08 : 0;
+  ctx.save();
+  ctx.globalAlpha = opts.collected ? 1 : 0.86; // 미수집은 살짝 옅게
+  ctx.translate(cx, bodyCy); ctx.rotate(wobble); ctx.translate(-cx, -bodyCy);
+  // 털
+  ctx.strokeStyle = '#151515'; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(2, size * 0.045);
+  const N = 40;
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    const len = r * (0.14 + 0.13 * (((i * 7919) % 13) / 13)) + r * 0.04 * Math.sin(t / 220 + i);
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * r * 0.9, bodyCy + Math.sin(a) * r * 0.9);
+    ctx.lineTo(cx + Math.cos(a) * (r + len), bodyCy + Math.sin(a) * (r + len));
+    ctx.stroke();
   }
   // 몸
-  ctx.fillStyle = '#ffc6d0'; ctx.strokeStyle = '#d98a9a'; ctx.lineWidth = Math.max(2, size * 0.03);
-  ctx.beginPath(); ctx.arc(cx, bodyCy, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // 볼
-  ctx.fillStyle = 'rgba(255,120,140,.55)';
-  ctx.beginPath(); ctx.ellipse(cx - r * 0.5, bodyCy + r * 0.15, r * 0.16, r * 0.1, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(cx + r * 0.5, bodyCy + r * 0.15, r * 0.16, r * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1b1b1b';
+  ctx.beginPath(); ctx.arc(cx, bodyCy, r, 0, Math.PI * 2); ctx.fill();
   // 눈
-  ctx.fillStyle = '#333';
+  const look = Math.sin(t / 900) * r * 0.04;
   for (const sx of [-1, 1]) {
-    const ex = cx + sx * r * 0.3, ey = bodyCy - r * 0.15;
-    if (blink) { ctx.lineWidth = Math.max(2, size * 0.03); ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.moveTo(ex - r * 0.1, ey); ctx.lineTo(ex + r * 0.1, ey); ctx.stroke(); }
-    else { ctx.beginPath(); ctx.arc(ex, ey, r * 0.09, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + r * 0.03, ey - r * 0.03, r * 0.03, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#333'; }
+    const ex = cx + sx * r * 0.34, ey = bodyCy - r * 0.05;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.ellipse(ex, ey, r * 0.24, blink ? r * 0.03 : r * 0.29, 0, 0, Math.PI * 2); ctx.fill();
+    if (!blink) { ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(ex + look, ey + r * 0.03, r * 0.11, 0, Math.PI * 2); ctx.fill(); }
   }
-  // 입
-  ctx.strokeStyle = '#a05a6a'; ctx.lineWidth = Math.max(2, size * 0.025);
-  ctx.beginPath(); ctx.arc(cx, bodyCy + r * 0.12, r * 0.14, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+  // 별사탕: 수집됨 = 들고 있음. 수집 중이면 커지며 등장
+  if (opts.sprite && (opts.collected || opts.collecting)) {
+    const k = opts.collecting ? easeOutBack(Math.min(opts.collectT, 1)) : 1;
+    drawCandy(ctx, cx + r * 0.62, bodyCy + r * 0.55, r * 0.26 * Math.max(k, 0.01), opts.sprite.color, t);
+  }
+  // 미수집: 머리 위 "!" 말풍선
+  if (opts.sprite && !opts.collected && !opts.collecting) {
+    ctx.globalAlpha = 1;
+    const bx = cx + r * 0.95, by = bodyCy - r * 1.25 + Math.sin(t / 300) * r * 0.05;
+    ctx.fillStyle = '#ffd54f'; ctx.beginPath(); ctx.arc(bx, by, r * 0.22, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#333'; ctx.font = `bold ${r * 0.3}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('!', bx, by + r * 0.01);
+  }
+  // 수집 연출: 반짝이
+  if (opts.collecting) {
+    ctx.globalAlpha = 1 - Math.min(opts.collectT, 1);
+    ctx.strokeStyle = opts.sprite?.color ?? '#fff'; ctx.lineWidth = Math.max(2, size * 0.03);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2, d0 = r * (1.2 + opts.collectT * 0.8), d1 = d0 + r * 0.25;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * d0, bodyCy + Math.sin(a) * d0); ctx.lineTo(cx + Math.cos(a) * d1, bodyCy + Math.sin(a) * d1); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+const easeOutBack = (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+
+// S7: 충전 연출 — 물체 위로 검댕 알갱이가 떠오르고, 상단에 진행 호
+function drawCharging(ctx, b, t, k) {
+  ctx.save();
+  const cx = b.x + b.w / 2, top = b.y;
+  const range = b.h * 0.35;
+  for (let i = 0; i < 8; i++) {
+    const phase = ((t / 7 + i * 61) % range);
+    const x = cx + (i - 3.5) * b.w * 0.11 + Math.sin(t / 450 + i) * b.w * 0.03;
+    const y = top - phase;
+    ctx.globalAlpha = k * (1 - phase / range) * 0.9;
+    ctx.fillStyle = '#1b1b1b';
+    ctx.beginPath(); ctx.arc(x, y, b.w * (0.012 + 0.012 * k), 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = Math.max(2, b.w * 0.02);
+  ctx.beginPath(); ctx.arc(cx, top - b.h * 0.12, b.w * 0.16, -Math.PI / 2, Math.PI * 1.5); ctx.stroke();
+  ctx.strokeStyle = '#ffd54f';
+  ctx.beginPath(); ctx.arc(cx, top - b.h * 0.12, b.w * 0.16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
   ctx.restore();
 }
 
@@ -355,6 +468,7 @@ function characterPlacement(t) {
   const dpr = canvas.width / canvas.clientWidth;
   let bob = c.state === 'idle' ? Math.sin(t / 400) * 2 * dpr : 0;
   if (c.state === 'wave') bob = -Math.abs(Math.sin((t - c.since) / WAVE_MS * Math.PI * 2)) * 0.12 * b.h; // S5: 점프
+  if (c.state === 'collect') bob = -Math.abs(Math.sin((t - c.since) / COLLECT_MS * Math.PI)) * 0.2 * b.h; // S7: 큰 점프
   const anchorY = b.y + b.h * (0.6 - 0.45 * c.progress) + bob; // 0.6h → 0.15h
   return { cx: b.x + b.w / 2, cy: anchorY, size: b.w * 0.8, box: b };
 }
@@ -365,10 +479,15 @@ function composite(t) {
   ctx.drawImage(video, ox, oy, vw * s, vh * s);
   updateCharacter(t);
   const p = characterPlacement(t);
-  if (p && state.char.state !== 'hidden') {
-    drawCharacter(ctx, p.cx, p.cy, p.size, t, state.char.state === 'wave'); // S5
+  const c = state.char;
+  if (p && c.state !== 'hidden' && c.state !== 'charging') {
+    drawCharacter(ctx, p.cx, p.cy, p.size, t, { // S7
+      sprite: c.sprite, collected: c.sprite && isCollected(c.sprite.id) && c.state !== 'collect',
+      waving: c.state === 'wave', collecting: c.state === 'collect', collectT: (t - c.since) / COLLECT_MS,
+    });
     if (!(USE_MASK && occludeWithMask(s, ox, oy, vw, vh))) occlude(p, s, ox, oy, vw, vh); // S4 → S3 폴백
   }
+  if (p && c.state === 'charging') drawCharging(ctx, p.box, t, Math.min((t - c.since) / HOLD_MS, 1)); // S7
   if (!state.lock) state.mask = null; // S4: 락 해제 시 마스크 폐기
 }
 
@@ -419,7 +538,8 @@ function render(t) {
     `det ${hz(state.detTimes, t)} Hz | seg ${hz(state.segTimes, t)} Hz | fps ${hz(state.frameTimes, t)} | ${state.delegate}\n` +
     `video ${video.videoWidth}x${video.videoHeight}\n` +
     `lock ${state.lock ? state.lock.label : '-'} | miss ${(state.missMs / 1000).toFixed(1)}s | char ${state.char.state}\n` +
-    `mask ${USE_MASK ? (state.mask ? 'on' : 'none') : 'off'} | rej ${state.maskRejects}` +
+    `mask ${USE_MASK ? (state.mask ? 'on' : 'none') : 'off'} | rej ${state.maskRejects}\n` +
+    `home ${state.home?.label ?? '-'} | hits ${state.hits} | sprite ${state.char.sprite?.id ?? '-'} | col ${state.collection.length}/${SPRITES.length}` +
     (state.error ? `\nERR ${state.error}` : '');
   requestAnimationFrame(render);
 }
@@ -427,15 +547,21 @@ function render(t) {
 // ---- S5: 상호작용 + 공유 ----
 const shutterBtn = document.getElementById('shutter');
 
-// 캐릭터 영역(몸 원) 탭 → wave
+// 캐릭터 영역(몸 원) 탭 → S7: 미수집이면 수집, 수집됐으면 모션만(wave)
 function onTap(ev) {
   const c = state.char;
-  if (c.state !== 'idle' && c.state !== 'peek') return;
+  if (c.state !== 'idle') return;
   const p = characterPlacement(performance.now()); if (!p) return;
   const rect = canvas.getBoundingClientRect(), dpr = canvas.width / rect.width;
   const x = (ev.clientX - rect.left) * dpr, y = (ev.clientY - rect.top) * dpr;
   const r = p.size / 2, bx = p.cx, by = p.cy - r;
-  if (Math.hypot(x - bx, y - by) <= r * 1.3) { c.state = 'wave'; c.since = performance.now(); }
+  if (Math.hypot(x - bx, y - by) > r * 1.3) return;
+  if (c.sprite && !isCollected(c.sprite.id)) {
+    state.collection.push({ id: c.sprite.id, label: state.lock?.label ?? '?', at: Date.now() });
+    store.set('collection', state.collection);
+    c.state = 'collect'; c.since = performance.now();
+    renderBadge();
+  } else { c.state = 'wave'; c.since = performance.now(); }
 }
 canvas.addEventListener('pointerdown', onTap);
 
@@ -458,11 +584,45 @@ async function shoot() {
 }
 shutterBtn.addEventListener('click', shoot);
 
-// 안내 문구: 락 전엔 "컵을 비춰보세요", 락되면 사라짐
+// 안내 문구 (S7에서 확장)
 function updateHint() {
   if (state.error || !detector) return;
-  msg.textContent = state.lock ? '' : '컵을 비춰보세요';
+  const c = state.char;
+  let text = '';
+  if (!state.lock) text = state.home ? `${state.home.label}을(를) 비춰보세요` : '컵을 비춰보세요';
+  else if (c.state === 'charging') text = `가만히… 뭔가 나올 것 같아 (${Math.max(0, Math.ceil((HOLD_MS - (performance.now() - c.since)) / 1000))})`;
+  else if (c.state === 'idle' && c.sprite && !isCollected(c.sprite.id)) text = '탭해서 수집!';
+  else if (!state.home) text = '조금만 더 비추면 이 물체를 기억할게요';
+  if (msg.textContent !== text) msg.textContent = text;
 }
+
+// ---- S7: 도감 UI ----
+const badge = document.getElementById('badge');
+const panel = document.getElementById('panel');
+function renderBadge() { badge.textContent = `★ ${state.collection.length}/${SPRITES.length}`; }
+function renderPanel() {
+  const slots = panel.querySelector('#slots');
+  slots.innerHTML = '';
+  for (const s of SPRITES) {
+    const got = state.collection.find((c) => c.id === s.id);
+    const el = document.createElement('div'); el.className = 'slot' + (got ? ' got' : '');
+    const cv = document.createElement('canvas'); cv.width = cv.height = 96;
+    const g = cv.getContext('2d');
+    if (got) drawCharacter(g, 48, 84, 52, 1000, { sprite: s, collected: true });
+    else { g.globalAlpha = 0.25; drawCharacter(g, 48, 84, 52, 1000, {}); }
+    el.appendChild(cv);
+    const cap = document.createElement('div'); cap.textContent = got ? `${s.name} · ${got.label}` : '???';
+    el.appendChild(cap); slots.appendChild(el);
+  }
+  panel.querySelector('#home').textContent = state.home ? `기억한 물체: ${state.home.label}` : '아직 기억한 물체 없음';
+}
+badge.addEventListener('click', () => { renderPanel(); panel.hidden = !panel.hidden; });
+panel.addEventListener('click', (e) => { if (e.target === panel) panel.hidden = true; });
+panel.querySelector('#reset').addEventListener('click', () => {
+  if (!confirm('기억한 물체와 도감을 모두 지울까요?')) return;
+  store.clear(); state.home = null; state.collection = []; state.lock = null; state.hits = 0;
+  renderBadge(); renderPanel();
+});
 
 // ---- 시작 ----
 async function main() {
@@ -475,6 +635,7 @@ async function main() {
     await createSegmenter(); // S4
     msg.textContent = '';
     shutterBtn.hidden = false; // S5
+    badge.hidden = false; renderBadge(); // S7
     video.requestVideoFrameCallback(onVideoFrame);
   } catch (e) {
     console.error(e);
