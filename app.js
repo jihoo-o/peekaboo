@@ -1,6 +1,7 @@
 // Peekaboo AR — 물체 뒤 캐릭터. 단계 번호(S1, S2, ...)는 각 코드가 추가된 단계다.
 // S1: 카메라 + MediaPipe ObjectDetector 루프 + 디버그 오버레이
 // S2: 타깃 락(가장 큰 허용 클래스 → IoU 매칭) + One Euro 필터 스무딩
+// S3: 2D 캔버스 캐릭터 등장(peek/idle/hide) + bbox 사각형 오클루전
 
 const VISION_VERSION = '0.10.35';
 const VISION_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VERSION}`;
@@ -33,6 +34,8 @@ const state = {
   // S2
   lock: null,          // { label, raw:{x,y,w,h}, box:{x,y,w,h}(스무딩), lastSeen }
   missMs: 0,
+  // S3
+  char: { state: 'hidden', since: 0, progress: 0 }, // hidden → peek → idle → hide
 };
 window.__peekaboo = state;
 
@@ -133,6 +136,7 @@ async function startCamera() {
   video.srcObject = stream;
   await new Promise((r) => (video.onloadedmetadata = r));
   await video.play();
+  video.style.visibility = 'hidden'; // S3: 캔버스가 보이는 화면
 }
 
 // ---- 검출기 ----
@@ -172,6 +176,90 @@ function onVideoFrame(now) {
   video.requestVideoFrameCallback(onVideoFrame);
 }
 
+// ---- S3: 캐릭터 ----
+const PEEK_MS = 600, HIDE_MS = 300;
+const easeOutBack = (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+
+// 락 여부에 따라 상태 전이. progress 0=숨김(bbox.y+0.6h), 1=완전 등장(bbox.y+0.15h)
+function updateCharacter(now) {
+  const c = state.char;
+  const locked = !!state.lock;
+  if (locked && (c.state === 'hidden' || c.state === 'hide')) { c.state = 'peek'; c.since = now; }
+  if (!locked && (c.state === 'peek' || c.state === 'idle')) { c.state = 'hide'; c.since = now; }
+  const el = now - c.since;
+  switch (c.state) {
+    case 'peek':
+      c.progress = easeOutBack(Math.min(el / PEEK_MS, 1));
+      if (el >= PEEK_MS) { c.state = 'idle'; c.since = now; c.progress = 1; }
+      break;
+    case 'idle': c.progress = 1; break;
+    case 'hide':
+      c.progress = 1 - Math.min(el / HIDE_MS, 1);
+      if (el >= HIDE_MS) { c.state = 'hidden'; c.progress = 0; }
+      break;
+    default: c.progress = 0;
+  }
+}
+
+// 동그란 파스텔 몸 + 눈(깜빡임) + 볼 + 작은 팔. (cx, cy)=하단 중심, size=폭.
+function drawCharacter(ctx, cx, cy, size, t) {
+  const r = size / 2;
+  const bodyCy = cy - r;             // 몸 중심
+  const blink = (t % 3200) < 120;    // 3.2초마다 120ms 깜빡
+  ctx.save();
+  // 팔
+  ctx.strokeStyle = '#f6a6b2'; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(3, size * 0.09);
+  const armY = bodyCy + r * 0.15, wave = Math.sin(t / 250) * 0.15;
+  ctx.beginPath(); ctx.moveTo(cx - r * 0.85, armY); ctx.lineTo(cx - r * 1.25, armY - r * (0.35 + wave)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx + r * 0.85, armY); ctx.lineTo(cx + r * 1.25, armY - r * (0.35 - wave)); ctx.stroke();
+  // 몸
+  ctx.fillStyle = '#ffc6d0'; ctx.strokeStyle = '#d98a9a'; ctx.lineWidth = Math.max(2, size * 0.03);
+  ctx.beginPath(); ctx.arc(cx, bodyCy, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // 볼
+  ctx.fillStyle = 'rgba(255,120,140,.55)';
+  ctx.beginPath(); ctx.ellipse(cx - r * 0.5, bodyCy + r * 0.15, r * 0.16, r * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx + r * 0.5, bodyCy + r * 0.15, r * 0.16, r * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+  // 눈
+  ctx.fillStyle = '#333';
+  for (const sx of [-1, 1]) {
+    const ex = cx + sx * r * 0.3, ey = bodyCy - r * 0.15;
+    if (blink) { ctx.lineWidth = Math.max(2, size * 0.03); ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.moveTo(ex - r * 0.1, ey); ctx.lineTo(ex + r * 0.1, ey); ctx.stroke(); }
+    else { ctx.beginPath(); ctx.arc(ex, ey, r * 0.09, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + r * 0.03, ey - r * 0.03, r * 0.03, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#333'; }
+  }
+  // 입
+  ctx.strokeStyle = '#a05a6a'; ctx.lineWidth = Math.max(2, size * 0.025);
+  ctx.beginPath(); ctx.arc(cx, bodyCy + r * 0.12, r * 0.14, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+  ctx.restore();
+}
+
+// 캐릭터의 현재 화면 배치 (하단 중심 x, y, 폭). 락이 없으면 null.
+function characterPlacement(t) {
+  const b = lockedScreenBox(); if (!b) return null;
+  const c = state.char;
+  const bob = c.state === 'idle' ? Math.sin(t / 400) * 2 * (canvas.width / canvas.clientWidth) : 0;
+  const anchorY = b.y + b.h * (0.6 - 0.45 * c.progress) + bob; // 0.6h → 0.15h
+  return { cx: b.x + b.w / 2, cy: anchorY, size: b.w * 0.8, box: b };
+}
+
+// S3: 합성 — (1) video → (2) 캐릭터 → (3) video의 락 bbox 영역 재도장(사각 오클루전)
+function composite(t) {
+  const { s, ox, oy, vw, vh } = coverTransform();
+  ctx.drawImage(video, ox, oy, vw * s, vh * s);
+  updateCharacter(t);
+  const p = characterPlacement(t);
+  if (p && state.char.state !== 'hidden') {
+    drawCharacter(ctx, p.cx, p.cy, p.size, t);
+    occlude(p, s, ox, oy, vw, vh);
+  }
+}
+
+function occlude(p, s, ox, oy, vw, vh) {
+  const L = state.lock.box;
+  const sx = Math.max(0, L.x), sy = Math.max(0, L.y);
+  const sw = Math.min(vw, L.x + L.w) - sx, sh = Math.min(vh, L.y + L.h) - sy;
+  if (sw > 0 && sh > 0) ctx.drawImage(video, sx, sy, sw, sh, ox + sx * s, oy + sy * s, sw * s, sh * s);
+}
+
 // ---- 렌더 루프 (rAF) ----
 function drawDetections(t) {
   const { s, ox, oy } = coverTransform();
@@ -206,11 +294,11 @@ function lockedScreenBox() {
 function render(t) {
   state.frameTimes.push(t);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (video.videoWidth) drawDetections(t);
+  if (video.videoWidth) { composite(t); if (params.get('debug') !== '0') drawDetections(t); } // S3
   hud.textContent =
     `det ${hz(state.detTimes, t)} Hz | fps ${hz(state.frameTimes, t)} | ${state.delegate}\n` +
     `video ${video.videoWidth}x${video.videoHeight}\n` +
-    `lock ${state.lock ? state.lock.label : '-'} | miss ${(state.missMs / 1000).toFixed(1)}s` +
+    `lock ${state.lock ? state.lock.label : '-'} | miss ${(state.missMs / 1000).toFixed(1)}s | char ${state.char.state}` +
     (state.error ? `\nERR ${state.error}` : '');
   requestAnimationFrame(render);
 }
