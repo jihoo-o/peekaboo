@@ -17,3 +17,4 @@
 | [0011](0011-home-object-by-class-label.md) | "최초 인식 물체"를 클래스 라벨 하나로 기억 (localStorage) |
 | [0012](0012-collection-by-candy-color.md) | 수집 게임: 별사탕 색 6종이 캐릭터 정체성, 5초 유지 후 등장 |
 | [0013](0013-scan-then-random-target-and-glow.md) | 스캔 후 대상 물체 무작위 선택·저장, 가까움 = bbox 폭, 발광 = lighter 합성, 짠! 등장 |
+| [0014](0014-targetable-all-but-excluded.md) | 타깃 가능 클래스 = COCO 전부에서 사람·동물·탈것·거리 시설물·큰 면만 제외 |

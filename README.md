@@ -5,7 +5,8 @@ No build step: just `index.html` + `app.js`. Libraries come from a CDN as ES mod
 
 - Detection: MediaPipe ObjectDetector (EfficientDet-Lite0 fp16, COCO 80 classes)
 - Occlusion: MediaPipe InteractiveSegmenter (MagicTouch) mask clips the video and is drawn over the character
-- Tracking: lock the largest allowed-class detection → IoU matching → One Euro filter smoothing
+- Tracking: lock the largest detection of the chosen class → IoU matching → One Euro filter smoothing
+- Targetable classes: all 80 COCO classes except people, animals, vehicles, street fixtures, dining table and bed ([ADR-0014](docs/adr/0014-targetable-all-but-excluded.md))
 
 ## Run it
 

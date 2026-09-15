@@ -12,8 +12,15 @@ const VISION_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISIO
 const SEGMENTER_MODEL = 'https://storage.googleapis.com/mediapipe-models/interactive_segmenter/magic_touch/float32/1/magic_touch.tflite';
 const DETECTOR_MODEL = 'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite';
 
-// S2: 락 대상 클래스
-const ALLOWED = ['cup', 'bottle', 'book', 'bowl', 'vase', 'potted plant', 'mouse', 'laptop'];
+// S2: 락 대상 클래스 → S9: COCO 80종 중 제외 목록 빼고 전부 (바닥·책상 위에 놓이는 물체는 모두 타깃 가능)
+const EXCLUDED = new Set([
+  'person', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', // 사람·동물
+  'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat',                   // 탈것
+  'traffic light', 'fire hydrant', 'stop sign', 'parking meter',                                 // 거리 시설물
+  'dining table', 'bed',                                                                         // 화면을 다 덮는 큰 면
+]);
+const isTargetable = (label) => !EXCLUDED.has(label);
+const ALLOWED = { includes: isTargetable }; // 기존 호출부(ALLOWED.includes) 유지
 const LOCK_MIN_SCORE = 0.5;
 const LOCK_MIN_IOU = 0.3;
 const LOCK_LOST_MS = 1000;
