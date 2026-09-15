@@ -1,0 +1,30 @@
+# GitHub Pages 배포: main에 푸시되면 레포 루트(index.html, app.js)를 그대로 올린다.
+# configure-pages의 enablement:true가 Pages 사이트를 자동 생성한다(public 레포 또는 Pages 가능 플랜 필요).
+name: pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4

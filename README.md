@@ -9,7 +9,8 @@
 
 ## 실행
 
-1. GitHub Pages: Settings → Pages → Deploy from a branch, `main` / `(root)`. `https://<id>.github.io/peekaboo/` 를 안드로이드 Chrome에서 연다.
+1. GitHub Pages: `main`에 푸시하면 `.github/workflows/pages.yml`이 자동 배포한다 → `https://jihoo-o.github.io/peekaboo/` 를 안드로이드 Chrome에서 연다.
+   레포가 private이면 무료 플랜에선 Pages가 안 되므로 먼저 public으로 전환(Settings → General → Danger Zone → Change visibility)한 뒤 Actions 탭에서 `pages`를 Run workflow.
 2. 로컬: `npx serve .` 후 HTTPS 터널(`cloudflared tunnel --url http://localhost:3000`)로 폰에서 연다. 카메라 권한은 HTTPS(또는 localhost)에서만 뜬다.
 3. "카메라 시작" 버튼 → 컵을 화면 중앙에 비춘다 → 캐릭터가 컵 뒤에서 올라온다. 탭하면 손을 흔들고, 하단 셔터로 합성 이미지를 공유/저장한다.
 
