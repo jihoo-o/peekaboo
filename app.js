@@ -4,7 +4,8 @@
 // S3: 2D 캔버스 캐릭터 등장(peek/idle/hide) + bbox 사각형 오클루전
 // S4: InteractiveSegmenter(MagicTouch) 마스크 오클루전 (EMA + 블러, bbox IoU 게이트)
 // S5: 탭 → wave, 셔터 → 공유/저장, 안내 문구
-// S7: 게임화 — 최초 확정 물체 기억(localStorage), 5초 유지 후 등장, 검댕이 캐릭터, 탭 수집/도감
+// S7: 게임화 — 물체 기억(localStorage), 5초 유지 후 등장, 검댕이 캐릭터, 탭 수집/도감
+// S8: 공간 스캔 → 대상 물체 무작위 선택 → 물체 뒤 발광(가까울수록 강하게) → 5초 충전 → 짠! 등장
 
 const VISION_VERSION = '0.10.35';
 const VISION_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VERSION}`;
@@ -26,6 +27,9 @@ const MASK_BLUR_PX = 2;
 // S7: 게임 설정
 const CONFIRM_HITS = 3;       // 연속 매칭 n회 → "타깃 확실"
 const HOLD_MS = 5000;         // 확정 상태를 이만큼 유지해야 등장
+// S8: 스캔·발광
+const SCAN_MS = 6000;         // 최소 스캔 시간. 허용 물체가 하나도 안 보이면 계속 스캔
+const NEAR_MIN = 0.15, NEAR_MAX = 0.6; // bbox 폭/영상 폭 → 0(멀다)~1(가깝다)
 const SPRITES = [             // 캐릭터 6종 = 별사탕 색. 수집 대상 식별자.
   { id: 'pink',   color: '#f48fb1', name: '분홍' },
   { id: 'green',  color: '#81c784', name: '초록' },
@@ -66,7 +70,11 @@ const state = {
   // S3 (S7에서 확장): hidden → charging → peek → idle ⇄ wave/collect → hide
   char: { state: 'hidden', since: 0, progress: 0, sprite: null },
   // S7
-  home: store.get('home', null),            // { label, savedAt } 이 공간에서 최초로 확정된 물체
+  home: store.get('home', null),            // { label, savedAt, seen } S8: 스캔 결과에서 고른 대상 물체
+  // S8
+  phase: store.get('home', null) ? 'play' : 'scan',
+  scan: { start: 0, seen: {} },             // seen[label] = { n, maxW }
+  near: 0,                                  // 0~1 대상 물체와의 가까움(bbox 폭 기준)
   collection: store.get('collection', []),  // [{ id, label, at }]
   hits: 0,                                  // 현재 락의 연속 매칭 횟수
   // S4
@@ -122,8 +130,8 @@ function updateTracker(dets, now) {
     // 락 없음: 허용 클래스 중 score>=0.5, 면적 최대
     let best = null;
     for (const d of dets) {
-      // S7: 기억한 물체가 있으면 그 클래스만, 없으면 ALLOWED
-      const ok = state.home ? d.label === state.home.label : ALLOWED.includes(d.label);
+      // S7/S8: 스캔에서 고른 물체 클래스만
+      const ok = state.home ? d.label === state.home.label : false;
       if (!ok || d.score < LOCK_MIN_SCORE) continue;
       if (!best || d.w * d.h > best.w * best.h) best = d;
     }
@@ -150,10 +158,6 @@ function updateTracker(dets, now) {
     lock.box = { x: f.x.filter(best.x, now), y: f.y.filter(best.y, now), w: f.w.filter(best.w, now), h: f.h.filter(best.h, now) };
     state.missMs = 0;
     state.hits++; // S7
-    if (state.hits >= CONFIRM_HITS && !state.home) { // S7: 최초로 확정된 물체를 기억
-      state.home = { label: lock.label, savedAt: Date.now() };
-      store.set('home', state.home);
-    }
   } else {
     state.missMs = now - lock.lastSeen;
     if (state.missMs >= LOCK_LOST_MS) { state.lock = null; state.missMs = 0; state.hits = 0; }
@@ -218,7 +222,8 @@ function onVideoFrame(now) {
       label: d.categories[0]?.categoryName ?? '?', score: d.categories[0]?.score ?? 0,
     }));
     state.detTimes.push(performance.now());
-    updateTracker(state.detections, performance.now()); // S2
+    if (state.phase === 'scan') recordScan(state.detections); // S8
+    else updateTracker(state.detections, performance.now()); // S2
   }
   maybeSegment(performance.now()); // S4
   video.requestVideoFrameCallback(onVideoFrame);
@@ -314,8 +319,84 @@ function occludeWithMask(s, ox, oy, vw, vh) {
   return true;
 }
 
+// ---- S8: 공간 스캔 → 대상 물체 선택 ----
+function startScan(now) {
+  state.phase = 'scan'; state.scan = { start: now, seen: {} };
+  state.lock = null; state.hits = 0; state.mask = null;
+}
+function recordScan(dets) {
+  for (const d of dets) {
+    if (!ALLOWED.includes(d.label) || d.score < LOCK_MIN_SCORE) continue;
+    const s = state.scan.seen[d.label] ??= { n: 0, maxW: 0 };
+    s.n++; s.maxW = Math.max(s.maxW, d.w);
+  }
+}
+// 스캔 종료 조건: 최소 시간 경과 + 허용 물체 1개 이상. 그중 하나를 무작위로 골라 저장(플레이어에겐 비밀).
+function maybeFinishScan(now) {
+  if (state.phase !== 'scan') return;
+  if (!state.scan.start) state.scan.start = now;
+  const labels = Object.keys(state.scan.seen).filter((l) => state.scan.seen[l].n >= 2);
+  if (now - state.scan.start < SCAN_MS || !labels.length) return;
+  const label = labels[Math.floor(Math.random() * labels.length)];
+  state.home = { label, savedAt: Date.now(), seen: labels };
+  store.set('home', state.home);
+  state.phase = 'play';
+  renderBadge();
+}
+// 스캔 중 화면: 중앙 진행 링 + 발견한 물체 수
+function drawScan(ctx, t) {
+  const k = Math.min((t - state.scan.start) / SCAN_MS, 1);
+  const cx = canvas.width / 2, cy = canvas.height / 2, r = Math.min(canvas.width, canvas.height) * 0.12;
+  ctx.save();
+  ctx.lineWidth = Math.max(3, r * 0.08); ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = '#ffd54f'; ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
+  // 회전하는 스캔 바늘
+  const a = t / 600; ctx.strokeStyle = 'rgba(255,255,255,.7)';
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * r * 0.85, cy + Math.sin(a) * r * 0.85); ctx.stroke();
+  ctx.restore();
+}
+
+// S8: 가까움 = 스무딩된 bbox 폭 / 영상 폭을 NEAR_MIN~NEAR_MAX로 정규화
+function updateNear() {
+  const L = state.lock;
+  state.near = L ? Math.max(0, Math.min(1, (L.box.w / video.videoWidth - NEAR_MIN) / (NEAR_MAX - NEAR_MIN))) : 0;
+}
+// S8: 물체 뒤 발광. 캐릭터보다 먼저 그리고, 그 위에 마스크로 잘라낸 물체 픽셀이 덮여 "뒤에서 새어 나오는" 빛이 된다.
+function drawGlow(ctx, b, t) {
+  const c = state.char;
+  const charging = c.state === 'charging' ? (t - c.since) / HOLD_MS : c.state === 'hidden' ? 0 : 1;
+  const pulse = 0.5 + 0.5 * Math.sin(t / (charging ? 180 + 420 * (1 - charging) : 700)); // 충전 중엔 점점 빠르게 깜빡
+  const strength = (0.25 + 0.75 * state.near) * (0.6 + 0.4 * pulse) * (0.7 + 0.3 * charging);
+  const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+  const R = Math.max(b.w, b.h) * (0.7 + 0.5 * state.near + 0.2 * pulse);
+  const g = ctx.createRadialGradient(cx, cy, R * 0.15, cx, cy, R);
+  g.addColorStop(0, `rgba(255,236,150,${0.95 * strength})`);
+  g.addColorStop(0.5, `rgba(255,210,90,${0.45 * strength})`);
+  g.addColorStop(1, 'rgba(255,200,80,0)');
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g;
+  ctx.fillRect(cx - R, cy - R, R * 2, R * 2); ctx.restore();
+}
+// S8: 짠! 등장 버스트
+function drawPop(ctx, cx, cy, size, t, k) {
+  const r = size / 2, by = cy - r;
+  ctx.save();
+  ctx.globalAlpha = 1 - k;
+  ctx.strokeStyle = '#fff59d'; ctx.lineWidth = Math.max(2, size * 0.04); ctx.lineCap = 'round';
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2 + t / 4000, d0 = r * (1.1 + k * 1.4), d1 = d0 + r * (0.35 - 0.2 * k);
+    ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * d0, by + Math.sin(a) * d0); ctx.lineTo(cx + Math.cos(a) * d1, by + Math.sin(a) * d1); ctx.stroke();
+  }
+  ctx.globalAlpha = 1 - Math.max(0, k - 0.5) * 2;
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = '#333'; ctx.lineWidth = Math.max(2, size * 0.03);
+  ctx.font = `bold ${r * 0.6}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const ty = by - r * (1.5 + k * 0.4);
+  ctx.strokeText('짠!', cx, ty); ctx.fillText('짠!', cx, ty);
+  ctx.restore();
+}
+
 // ---- S3/S7: 캐릭터 ----
-const PEEK_MS = 1600, HIDE_MS = 300, WAVE_MS = 800, COLLECT_MS = 900; // S7: peek을 천천히
+const PEEK_MS = 450, HIDE_MS = 300, WAVE_MS = 800, COLLECT_MS = 900, POP_MS = 700; // S8: 짠! 하고 빠르게 등장
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 const confirmed = () => !!state.lock && state.hits >= CONFIRM_HITS; // S7: 타깃 확실
 
@@ -345,9 +426,9 @@ function updateCharacter(now) {
       c.progress = 0;
       if (el >= HOLD_MS) { c.state = 'peek'; c.since = now; }
       break;
-    case 'peek':
-      c.progress = easeOutCubic(Math.min(el / PEEK_MS, 1));
-      if (el >= PEEK_MS) { c.state = 'idle'; c.since = now; c.progress = 1; }
+    case 'peek': // S8: easeOutBack으로 튀어나옴 + 버스트(POP_MS 동안)
+      c.progress = easeOutBack(Math.min(el / PEEK_MS, 1));
+      if (el >= POP_MS) { c.state = 'idle'; c.since = now; c.progress = 1; }
       break;
     case 'idle': c.progress = 1; break;
     case 'wave': // S5: 0.8초 동안 흔들기 + 살짝 점프
@@ -480,6 +561,8 @@ function composite(t) {
   updateCharacter(t);
   const p = characterPlacement(t);
   const c = state.char;
+  updateNear(); // S8
+  if (p && state.phase === 'play') drawGlow(ctx, p.box, t); // S8: 물체 뒤 발광 (캐릭터·오클루전보다 먼저)
   if (p && c.state !== 'hidden' && c.state !== 'charging') {
     drawCharacter(ctx, p.cx, p.cy, p.size, t, { // S7
       sprite: c.sprite, collected: c.sprite && isCollected(c.sprite.id) && c.state !== 'collect',
@@ -488,6 +571,8 @@ function composite(t) {
     if (!(USE_MASK && occludeWithMask(s, ox, oy, vw, vh))) occlude(p, s, ox, oy, vw, vh); // S4 → S3 폴백
   }
   if (p && c.state === 'charging') drawCharging(ctx, p.box, t, Math.min((t - c.since) / HOLD_MS, 1)); // S7
+  if (p && c.state === 'peek') drawPop(ctx, p.cx, p.cy, p.size, t, Math.min((t - c.since) / POP_MS, 1)); // S8
+  if (state.phase === 'scan') { maybeFinishScan(t); if (state.phase === 'scan') drawScan(ctx, t); } // S8
   if (!state.lock) state.mask = null; // S4: 락 해제 시 마스크 폐기
 }
 
@@ -539,7 +624,8 @@ function render(t) {
     `video ${video.videoWidth}x${video.videoHeight}\n` +
     `lock ${state.lock ? state.lock.label : '-'} | miss ${(state.missMs / 1000).toFixed(1)}s | char ${state.char.state}\n` +
     `mask ${USE_MASK ? (state.mask ? 'on' : 'none') : 'off'} | rej ${state.maskRejects}\n` +
-    `home ${state.home?.label ?? '-'} | hits ${state.hits} | sprite ${state.char.sprite?.id ?? '-'} | col ${state.collection.length}/${SPRITES.length}` +
+    `phase ${state.phase} | home ${state.home?.label ?? '-'} | near ${state.near.toFixed(2)} | hits ${state.hits}\n` +
+    `sprite ${state.char.sprite?.id ?? '-'} | col ${state.collection.length}/${SPRITES.length}` +
     (state.error ? `\nERR ${state.error}` : '');
   requestAnimationFrame(render);
 }
@@ -589,10 +675,14 @@ function updateHint() {
   if (state.error || !detector) return;
   const c = state.char;
   let text = '';
-  if (!state.lock) text = state.home ? `${state.home.label}을(를) 비춰보세요` : '컵을 비춰보세요';
-  else if (c.state === 'charging') text = `가만히… 뭔가 나올 것 같아 (${Math.max(0, Math.ceil((HOLD_MS - (performance.now() - c.since)) / 1000))})`;
+  if (state.phase === 'scan') { // S8
+    const n = Object.keys(state.scan.seen).length;
+    text = n ? `주변을 천천히 둘러보세요… 물체 ${n}개 발견` : '주변을 천천히 둘러보세요';
+  }
+  else if (!state.lock) text = '이 공간 어딘가에 검댕이가 숨어 있어요. 빛나는 물건을 찾아보세요';
+  else if (c.state === 'hidden' || c.state === 'hide') text = state.near < 0.5 ? '빛이 보여요! 더 가까이…' : '여기다! 가만히 비춰보세요';
+  else if (c.state === 'charging') text = `뭔가 나올 것 같아… (${Math.max(0, Math.ceil((HOLD_MS - (performance.now() - c.since)) / 1000))})`;
   else if (c.state === 'idle' && c.sprite && !isCollected(c.sprite.id)) text = '탭해서 수집!';
-  else if (!state.home) text = '조금만 더 비추면 이 물체를 기억할게요';
   if (msg.textContent !== text) msg.textContent = text;
 }
 
@@ -614,14 +704,17 @@ function renderPanel() {
     const cap = document.createElement('div'); cap.textContent = got ? `${s.name} · ${got.label}` : '???';
     el.appendChild(cap); slots.appendChild(el);
   }
-  panel.querySelector('#home').textContent = state.home ? `기억한 물체: ${state.home.label}` : '아직 기억한 물체 없음';
+  panel.querySelector('#home').textContent = state.home
+    ? `숨은 곳: ${state.collection.length ? state.home.label : '??? (빛나는 물건을 찾아보세요)'} · 스캔에서 본 물체: ${(state.home.seen ?? [state.home.label]).join(', ')}`
+    : '스캔 중…';
 }
 badge.addEventListener('click', () => { renderPanel(); panel.hidden = !panel.hidden; });
 panel.addEventListener('click', (e) => { if (e.target === panel) panel.hidden = true; });
 panel.querySelector('#reset').addEventListener('click', () => {
   if (!confirm('기억한 물체와 도감을 모두 지울까요?')) return;
-  store.clear(); state.home = null; state.collection = []; state.lock = null; state.hits = 0;
-  renderBadge(); renderPanel();
+  store.clear(); state.home = null; state.collection = [];
+  startScan(performance.now()); // S8: 다시 스캔
+  renderBadge(); renderPanel(); panel.hidden = true;
 });
 
 // ---- 시작 ----
@@ -636,6 +729,7 @@ async function main() {
     msg.textContent = '';
     shutterBtn.hidden = false; // S5
     badge.hidden = false; renderBadge(); // S7
+    if (state.phase === 'scan') startScan(performance.now()); // S8
     video.requestVideoFrameCallback(onVideoFrame);
   } catch (e) {
     console.error(e);
