@@ -3,6 +3,7 @@
 // S2: 타깃 락(가장 큰 허용 클래스 → IoU 매칭) + One Euro 필터 스무딩
 // S3: 2D 캔버스 캐릭터 등장(peek/idle/hide) + bbox 사각형 오클루전
 // S4: InteractiveSegmenter(MagicTouch) 마스크 오클루전 (EMA + 블러, bbox IoU 게이트)
+// S5: 탭 → wave, 셔터 → 공유/저장, 안내 문구
 
 const VISION_VERSION = '0.10.35';
 const VISION_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VERSION}`;
@@ -49,6 +50,8 @@ const state = {
   segTimes: [], segBusy: false, lastSegAt: 0,
   mask: null,          // { w, h, alpha: Float32Array } EMA 마스크 (비디오 해상도)
   maskRejects: 0,
+  // S5
+  shots: 0,
 };
 window.__peekaboo = state;
 
@@ -281,7 +284,7 @@ function occludeWithMask(s, ox, oy, vw, vh) {
 }
 
 // ---- S3: 캐릭터 ----
-const PEEK_MS = 600, HIDE_MS = 300;
+const PEEK_MS = 600, HIDE_MS = 300, WAVE_MS = 800; // S5: wave
 const easeOutBack = (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
 
 // 락 여부에 따라 상태 전이. progress 0=숨김(bbox.y+0.6h), 1=완전 등장(bbox.y+0.15h)
@@ -289,7 +292,7 @@ function updateCharacter(now) {
   const c = state.char;
   const locked = !!state.lock;
   if (locked && (c.state === 'hidden' || c.state === 'hide')) { c.state = 'peek'; c.since = now; }
-  if (!locked && (c.state === 'peek' || c.state === 'idle')) { c.state = 'hide'; c.since = now; }
+  if (!locked && (c.state === 'peek' || c.state === 'idle' || c.state === 'wave')) { c.state = 'hide'; c.since = now; }
   const el = now - c.since;
   switch (c.state) {
     case 'peek':
@@ -297,6 +300,10 @@ function updateCharacter(now) {
       if (el >= PEEK_MS) { c.state = 'idle'; c.since = now; c.progress = 1; }
       break;
     case 'idle': c.progress = 1; break;
+    case 'wave': // S5: 0.8초 동안 팔 흔들기 + 살짝 점프
+      c.progress = 1;
+      if (el >= WAVE_MS) { c.state = 'idle'; c.since = now; }
+      break;
     case 'hide':
       c.progress = 1 - Math.min(el / HIDE_MS, 1);
       if (el >= HIDE_MS) { c.state = 'hidden'; c.progress = 0; }
@@ -306,7 +313,7 @@ function updateCharacter(now) {
 }
 
 // 동그란 파스텔 몸 + 눈(깜빡임) + 볼 + 작은 팔. (cx, cy)=하단 중심, size=폭.
-function drawCharacter(ctx, cx, cy, size, t) {
+function drawCharacter(ctx, cx, cy, size, t, waving = false) {
   const r = size / 2;
   const bodyCy = cy - r;             // 몸 중심
   const blink = (t % 3200) < 120;    // 3.2초마다 120ms 깜빡
@@ -315,7 +322,12 @@ function drawCharacter(ctx, cx, cy, size, t) {
   ctx.strokeStyle = '#f6a6b2'; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(3, size * 0.09);
   const armY = bodyCy + r * 0.15, wave = Math.sin(t / 250) * 0.15;
   ctx.beginPath(); ctx.moveTo(cx - r * 0.85, armY); ctx.lineTo(cx - r * 1.25, armY - r * (0.35 + wave)); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx + r * 0.85, armY); ctx.lineTo(cx + r * 1.25, armY - r * (0.35 - wave)); ctx.stroke();
+  if (waving) { // S5: 오른팔을 머리 위로 올려 좌우로 흔들기
+    const swing = Math.sin(t / 60) * 0.35;
+    ctx.beginPath(); ctx.moveTo(cx + r * 0.85, armY - r * 0.2); ctx.lineTo(cx + r * (1.1 + swing), armY - r * 1.2); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.moveTo(cx + r * 0.85, armY); ctx.lineTo(cx + r * 1.25, armY - r * (0.35 - wave)); ctx.stroke();
+  }
   // 몸
   ctx.fillStyle = '#ffc6d0'; ctx.strokeStyle = '#d98a9a'; ctx.lineWidth = Math.max(2, size * 0.03);
   ctx.beginPath(); ctx.arc(cx, bodyCy, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
@@ -340,7 +352,9 @@ function drawCharacter(ctx, cx, cy, size, t) {
 function characterPlacement(t) {
   const b = lockedScreenBox(); if (!b) return null;
   const c = state.char;
-  const bob = c.state === 'idle' ? Math.sin(t / 400) * 2 * (canvas.width / canvas.clientWidth) : 0;
+  const dpr = canvas.width / canvas.clientWidth;
+  let bob = c.state === 'idle' ? Math.sin(t / 400) * 2 * dpr : 0;
+  if (c.state === 'wave') bob = -Math.abs(Math.sin((t - c.since) / WAVE_MS * Math.PI * 2)) * 0.12 * b.h; // S5: 점프
   const anchorY = b.y + b.h * (0.6 - 0.45 * c.progress) + bob; // 0.6h → 0.15h
   return { cx: b.x + b.w / 2, cy: anchorY, size: b.w * 0.8, box: b };
 }
@@ -352,7 +366,7 @@ function composite(t) {
   updateCharacter(t);
   const p = characterPlacement(t);
   if (p && state.char.state !== 'hidden') {
-    drawCharacter(ctx, p.cx, p.cy, p.size, t);
+    drawCharacter(ctx, p.cx, p.cy, p.size, t, state.char.state === 'wave'); // S5
     if (!(USE_MASK && occludeWithMask(s, ox, oy, vw, vh))) occlude(p, s, ox, oy, vw, vh); // S4 → S3 폴백
   }
   if (!state.lock) state.mask = null; // S4: 락 해제 시 마스크 폐기
@@ -400,6 +414,7 @@ function render(t) {
   state.frameTimes.push(t);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (video.videoWidth) { composite(t); if (params.get('debug') !== '0') drawDetections(t); } // S3
+  updateHint(); // S5
   hud.textContent =
     `det ${hz(state.detTimes, t)} Hz | seg ${hz(state.segTimes, t)} Hz | fps ${hz(state.frameTimes, t)} | ${state.delegate}\n` +
     `video ${video.videoWidth}x${video.videoHeight}\n` +
@@ -407,6 +422,46 @@ function render(t) {
     `mask ${USE_MASK ? (state.mask ? 'on' : 'none') : 'off'} | rej ${state.maskRejects}` +
     (state.error ? `\nERR ${state.error}` : '');
   requestAnimationFrame(render);
+}
+
+// ---- S5: 상호작용 + 공유 ----
+const shutterBtn = document.getElementById('shutter');
+
+// 캐릭터 영역(몸 원) 탭 → wave
+function onTap(ev) {
+  const c = state.char;
+  if (c.state !== 'idle' && c.state !== 'peek') return;
+  const p = characterPlacement(performance.now()); if (!p) return;
+  const rect = canvas.getBoundingClientRect(), dpr = canvas.width / rect.width;
+  const x = (ev.clientX - rect.left) * dpr, y = (ev.clientY - rect.top) * dpr;
+  const r = p.size / 2, bx = p.cx, by = p.cy - r;
+  if (Math.hypot(x - bx, y - by) <= r * 1.3) { c.state = 'wave'; c.since = performance.now(); }
+}
+canvas.addEventListener('pointerdown', onTap);
+
+// 셔터: 캔버스 → JPEG → Web Share API, 안 되면 다운로드
+async function shoot() {
+  shutterBtn.disabled = true;
+  try {
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.9));
+    const file = new File([blob], `peekaboo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Peekaboo AR' });
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }
+    state.shots++;
+  } catch (e) { if (e.name !== 'AbortError') { console.error(e); state.error = e.message; } }
+  finally { shutterBtn.disabled = false; }
+}
+shutterBtn.addEventListener('click', shoot);
+
+// 안내 문구: 락 전엔 "컵을 비춰보세요", 락되면 사라짐
+function updateHint() {
+  if (state.error || !detector) return;
+  msg.textContent = state.lock ? '' : '컵을 비춰보세요';
 }
 
 // ---- 시작 ----
@@ -419,6 +474,7 @@ async function main() {
     await createDetector();
     await createSegmenter(); // S4
     msg.textContent = '';
+    shutterBtn.hidden = false; // S5
     video.requestVideoFrameCallback(onVideoFrame);
   } catch (e) {
     console.error(e);

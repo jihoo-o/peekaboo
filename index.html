@@ -25,6 +25,14 @@
       padding: 16px 28px; font-size: 18px; border: 0; border-radius: 999px; background: #ffd54f; z-index: 4;
     }
     #start[hidden] { display: none; }
+    /* S5: 셔터 버튼 */
+    #shutter {
+      position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 28px); transform: translateX(-50%);
+      width: 72px; height: 72px; border-radius: 50%; border: 5px solid #fff; background: rgba(255,255,255,.35);
+      box-shadow: 0 0 0 3px rgba(0,0,0,.35); z-index: 4; padding: 0;
+    }
+    #shutter:active { background: #fff; }
+    #shutter[hidden] { display: none; }
   </style>
 </head>
 <body>
@@ -34,6 +42,7 @@
     <div id="hud">loading…</div>
     <div id="msg"></div>
     <button id="start">카메라 시작</button>
+    <button id="shutter" aria-label="촬영" hidden></button>
   </div>
   <script type="module" src="./app.js"></script>
 </body>
