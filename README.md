@@ -65,6 +65,8 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 
 `docs/preview/base-lab.html` proposes five new base characters instead of restyling the cat: a mole popping out of a mound, a seal pup lying flat, a bread loaf, a crying chick, and a small ghost. Each is built in the same emoticon grammar, scored on derpiness, trend fit and entrance, and compared in a table. Recommendation: the mole first, the seal second.
 
+`docs/preview/asset-lab.html` is a catalog of ready-made character assets by license: Microsoft Fluent Emoji 3D (MIT; 59 candidate PNGs are vendored under `docs/preview/fluent3d/` with their LICENSE), CC0 GLB packs (Gobkit, KayKit, Quaternius, Kenney, RobotExpressive), Apache/OFL and CC-BY emoji sets, and conditional ones (Tossface, OpenMoji, Mixamo), with how each would plug into the app.
+
 ## Not yet verified on a phone
 
 - Detection / segmentation Hz, heat, and mask flicker on real Android Chrome (if flicker is bad, set `MASK_EMA` in `app.js` to 0.7).
