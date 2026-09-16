@@ -53,6 +53,10 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 - Confirmed: scan → `cup` chosen and stored, `cup` detected at 0.69 and locked, glow drawn behind it, charging → pop → idle, the mask hides the sprite along the cup's curved rim, first tap → `collect` (collection 1/6 persisted in localStorage), second tap → `wave`, shutter → `peekaboo-<ts>.jpg` download.
 - The container renders WebGL in software (SwiftShader), so detection ran at 1–2 Hz there. **Real-device Hz must be checked on a phone.** Use `?res=480` if it is below 10 Hz.
 
+## Character style preview (toward S6)
+
+`docs/preview/character-lab.html` renders the soot-sprite replacement candidate — a round yellow cat motif — in five 3D styles (cel toon, jelly, clay, low-poly, voxel) with three.js, all from one shared parts definition and no image assets. Open it from GitHub Pages at `/peekaboo/docs/preview/character-lab.html`. Drag to rotate; the six body-color chips are the candy colors from `SPRITES`.
+
 ## Not yet verified on a phone
 
 - Detection / segmentation Hz, heat, and mask flicker on real Android Chrome (if flicker is bad, set `MASK_EMA` in `app.js` to 0.7).
