@@ -9,6 +9,7 @@
 // S10: 큰 물체는 옆에서 등장(화면 위 여유 없을 때) + 한 번 맞춘 물체는 이후 즉시 등장
 // S11: 짠! 대신 스을쩍 — 물체에 완전히 가려진 위치에서 뒤뚱거리며 걸어 나오고, 중간에 한 번 움찔 물러난다
 // S12: 패럴랙스 — 평소엔 반쯤 숨어 있고, 폰을 옆·위로 움직이면(물체가 화면에서 치우치면) 뒤에 숨은 캐릭터가 더 드러난다
+// S14: 못 찾는 문제 대응 — 스캔에서 충분히(4회↑) 본 물체만 후보, 본 횟수 가중 선택, 후보 목록·20초 뒤 라벨 힌트, 밝은 배경에서도 보이는 발광 링
 // S13: 먼작귀 도감 — 별사탕 6색 대신 캐릭터 15종. 물체 라벨마다 사는 종이 다르고, 희귀도·심야 시크릿·세트가 있다. 그림은 공식 에셋 슬롯(assets/skins/chiikawa/)이며 없으면 이름표 실루엣
 
 const VISION_VERSION = '0.10.35';
@@ -40,6 +41,9 @@ const CONFIRM_HITS = 3;       // 연속 매칭 n회 → "타깃 확실"
 const HOLD_MS = 5000;         // 확정 상태를 이만큼 유지해야 등장
 // S8: 스캔·발광
 const SCAN_MS = 6000;         // 최소 스캔 시간. 허용 물체가 하나도 안 보이면 계속 스캔
+const SCAN_MIN_HITS = 4;      // S14: 이 횟수 이상 본 물체만 후보 (검출이 깜빡인 라벨 제외)
+const SCAN_MAX_MS = 15000;    // S14: 이 시간이 지나면 2회 이상 본 물체까지 후보로 완화
+const HINT_AFTER_MS = 20000;  // S14: 이만큼 못 찾으면 라벨 힌트
 const NEAR_MIN = 0.15, NEAR_MAX = 0.6; // bbox 폭/영상 폭 → 0(멀다)~1(가깝다)
 // S12: 패럴랙스. 물체가 화면 중앙에서 얼마나 치우쳤는지(-1~1)를 카메라 이동의 근사치로 쓴다.
 const PARALLAX_X = 0.55;   // 가로 최대 이동 = bbox 폭 × 이 값
@@ -112,6 +116,7 @@ const state = {
   phase: store.get('home', null) ? 'play' : 'scan',
   scan: { start: 0, seen: {} },             // seen[label] = { n, maxW }
   near: 0,                                  // 0~1 대상 물체와의 가까움(bbox 폭 기준)
+  playStart: 0, lastLockAt: 0,              // S14: 힌트 타이머
   parallax: { x: 0, y: 0 },                 // S12: 스무딩된 화면 내 치우침 (-1~1)
   collection: store.get('collection', []).filter((c) => SPECIES.some((s) => s.id === c.id)),  // [{ id, label, at, night }] S13: 옛 별사탕 id는 버림
   hits: 0,                                  // 현재 락의 연속 매칭 횟수
@@ -374,12 +379,17 @@ function recordScan(dets) {
 function maybeFinishScan(now) {
   if (state.phase !== 'scan') return;
   if (!state.scan.start) state.scan.start = now;
-  const labels = Object.keys(state.scan.seen).filter((l) => state.scan.seen[l].n >= 2);
-  if (now - state.scan.start < SCAN_MS || !labels.length) return;
-  const label = labels[Math.floor(Math.random() * labels.length)];
+  const el = now - state.scan.start;
+  const minHits = el >= SCAN_MAX_MS ? 2 : SCAN_MIN_HITS; // S14: 오래 걸리면 완화
+  const labels = Object.keys(state.scan.seen).filter((l) => state.scan.seen[l].n >= minHits);
+  if (el < SCAN_MS || !labels.length) return;
+  // S14: 본 횟수에 비례해 뽑는다(확실히 있는 물체가 대상이 될 확률이 높게)
+  const total = labels.reduce((a, l) => a + state.scan.seen[l].n, 0);
+  let r = Math.random() * total, label = labels[labels.length - 1];
+  for (const l of labels) { r -= state.scan.seen[l].n; if (r <= 0) { label = l; break; } }
   state.home = { label, savedAt: Date.now(), seen: labels };
   store.set('home', state.home);
-  state.phase = 'play';
+  state.phase = 'play'; state.playStart = now; state.lastLockAt = 0;
   renderBadge();
 }
 // 스캔 중 화면: 중앙 진행 링 + 발견한 물체 수
@@ -420,6 +430,14 @@ function drawGlow(ctx, b, t) {
   g.addColorStop(1, 'rgba(255,200,80,0)');
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g;
   ctx.fillRect(cx - R, cy - R, R * 2, R * 2); ctx.restore();
+  // S14: 밝은 배경에서는 'lighter'가 흰색으로 묻히므로, 일반 합성으로 주황 테두리 링을 더 그린다(마스크 아래라 물체 가장자리로 새어 나온다)
+  ctx.save();
+  ctx.globalAlpha = 0.45 + 0.5 * strength;
+  ctx.strokeStyle = '#ff9f1a'; ctx.lineWidth = Math.max(8, b.w * (0.07 + 0.07 * state.near));
+  ctx.shadowColor = '#ffb020'; ctx.shadowBlur = Math.max(16, b.w * 0.25);
+  // bbox보다 살짝 크게(0.66배 반지름) 그려서 물체 실루엣 바깥으로 테두리 빛이 보이게
+  ctx.beginPath(); ctx.ellipse(cx, cy, b.w * (0.66 + 0.05 * pulse), b.h * (0.66 + 0.05 * pulse), 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
 }
 // ---- S3/S7: 캐릭터 ----
 const PEEK_MS = 2400, HIDE_MS = 300, WAVE_MS = 800, COLLECT_MS = 900; // S11: 2.4초에 걸쳐 스을쩍
@@ -723,6 +741,7 @@ function composite(t) {
   const p = characterPlacement(t);
   const c = state.char;
   updateNear(); // S8
+  if (state.lock) state.lastLockAt = t; // S14
   if (p && state.phase === 'play') drawGlow(ctx, p.box, t); // S8: 물체 뒤 발광 (캐릭터·오클루전보다 먼저)
   if (p && c.state !== 'hidden' && c.state !== 'charging') {
     drawCharacter(ctx, p.cx, p.cy, p.size, t, { // S7
@@ -854,7 +873,14 @@ function updateHint() {
     const n = Object.keys(state.scan.seen).length;
     text = n ? `주변을 천천히 둘러보세요… 물체 ${n}개 발견` : '주변을 천천히 둘러보세요';
   }
-  else if (!state.lock) text = isNight() ? '심야에는 세이렌이 나올지도… 빛나는 물건을 찾아보세요' : '이 공간 어딘가에 먼작귀가 숨어 있어요. 빛나는 물건을 찾아보세요';
+  else if (!state.lock) { // S14: 후보 목록 + 오래 못 찾으면 라벨 힌트
+    const seen = state.home?.seen ?? [];
+    const base = isNight() ? '심야에는 세이렌이 나올지도…' : '이 공간 어딘가에 먼작귀가 숨어 있어요.';
+    const cand = seen.length > 1 ? ` 스캔에서 본 ${seen.length}개(${seen.join(', ')}) 중 하나예요.` : '';
+    const waited = performance.now() - Math.max(state.playStart, state.lastLockAt);
+    const hint = state.home && waited > HINT_AFTER_MS ? ` 힌트: ${state.home.label} 근처를 비춰보세요` : ' 빛나는 물건을 찾아보세요';
+    text = base + cand + hint;
+  }
   else if (c.state === 'hidden' || c.state === 'hide') text = state.home?.solved ? '' : state.near < 0.5 ? '빛이 보여요! 더 가까이…' : '여기다! 가만히 비춰보세요';
   else if (c.state === 'charging') text = `뭔가 나올 것 같아… (${Math.max(0, Math.ceil((HOLD_MS - (performance.now() - c.since)) / 1000))})`;
   else if (c.state === 'idle' && c.sprite && !isCollected(c.sprite.id)) text = `${c.sprite.name}! 탭해서 잡기`;
@@ -922,6 +948,7 @@ async function main() {
     shutterBtn.hidden = false; // S5
     badge.hidden = false; renderBadge(); // S7
     if (state.phase === 'scan') startScan(performance.now()); // S8
+    else state.playStart = performance.now(); // S14
     video.requestVideoFrameCallback(onVideoFrame);
   } catch (e) {
     console.error(e);
