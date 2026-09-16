@@ -1,6 +1,6 @@
 # Peekaboo AR — a character hiding behind objects
 
-Scan the room once. The app secretly picks one of the objects it saw; that object glows from behind, brighter as you get closer. Hold it in view for five seconds and a soot sprite sneaks out from **behind** it. Tap it to collect it — there are six candy colors to find.
+Scan the room once. The app secretly picks one of the objects it saw; that object glows from behind, brighter as you get closer. Hold it in view for five seconds and a character sneaks out from **behind** it. Tap it to collect it. The collection is a 15-species dex modelled on Chiikawa (먼작귀): which species appears depends on the object it hides behind, with rarity tiers, a night-only secret and set completion. Official artwork slots are empty until a license is in place; until then each species renders as a name-tagged silhouette ([ADR-0018](docs/adr/0018-chiikawa-dex-and-skin-slot.md)).
 No build step: just `index.html` + `app.js`. Libraries come from a CDN as ES modules and the models load straight from Google's storage.
 
 - Detection: MediaPipe ObjectDetector (EfficientDet-Lite0 fp16, COCO 80 classes)
@@ -14,7 +14,7 @@ No build step: just `index.html` + `app.js`. Libraries come from a CDN as ES mod
    Pages is not available for private repos on the free plan. Make the repo public first (Settings → General → Danger Zone → Change visibility), then trigger `pages` from the Actions tab.
 2. **Local**: `npx serve .` and expose it over HTTPS (for example `cloudflared tunnel --url http://localhost:3000`). Camera permission is only granted on HTTPS or localhost.
 3. Tap **카메라 시작** (start camera) and slowly look around for about 6 s (scan ring in the center). The app records every recognized object, picks one at random and stores it in `localStorage` (the label stays hidden until you collect something). Find the object that glows from behind; the glow strengthens as you get closer (bbox width). Hold it in view for 5 s (soot particles rise, a progress ring fills, the glow pulses faster) and the sprite sneaks out from behind the object: it waddles out a little, flinches back, then settles half hidden (2.4 s). Move the phone sideways or look from above (so the object drifts off the center of the frame) and the sprite is revealed further, as if you were peeking around the object. From then on the object counts as solved and the sprite pops out as soon as it is recognized. Large objects or objects at the top of the frame get the sprite at their side instead of above.
-4. Tap the sprite: an uncollected one (shows a yellow "!") is added to your collection; an already collected one (holding a candy) just wiggles. The ★ badge at the top right opens the collection panel, which also has a reset button. The shutter button at the bottom shares or saves the composited image.
+4. Tap the character: an uncollected one (shows a yellow "!") is added to your dex; an already collected one just wiggles. The ★ badge at the top right opens the dex (three sets: 주역·친구·갑옷, rarity dot per slot, silhouettes for unknown species), which also has a reset button. The shutter button at the bottom shares or saves the composited image with a name + rarity stamp.
 
 ### URL query parameters
 
@@ -24,6 +24,7 @@ No build step: just `index.html` + `app.js`. Libraries come from a CDN as ES mod
 | `?mask=0` | Disable segmentation and use the S3 rectangular bbox occlusion only |
 | `?debug=0` | Hide detection boxes and labels (the HUD stays on) |
 | `?reset=1` | Forget the chosen object, clear the collection and rescan |
+| `?skin=none` | Ignore official skin files and draw the name-tagged silhouettes |
 
 HUD (top-left): detection Hz · segmentation Hz · render fps · delegate · locked class · miss time · character state · mask state.
 
@@ -43,16 +44,18 @@ HUD (top-left): detection Hz · segmentation Hz · render fps · delegate · loc
 | S10 | Side entrance when there is no room above the object; once solved, the sprite appears immediately on re-lock ([ADR-0015](docs/adr/0015-side-placement-and-solved-skip.md)) | `S10: side placement + instant appearance once solved` |
 | S11 | Sneak-out entrance from a fully hidden position with a waddle and a flinch, replacing the pop ([ADR-0016](docs/adr/0016-sneak-out-instead-of-pop.md)) | `S11: sneak out from behind the object` |
 | S12 | Half-hidden rest pose + parallax reveal driven by the object's offset in the frame ([ADR-0017](docs/adr/0017-parallax-from-frame-offset.md)) | `S12: parallax reveal` |
+| S13 | Chiikawa dex: 15 species, species chosen by the object's label with rarity weights, night-only secret, sets, official-asset skin slot with silhouette fallback, name stamp on shared photos ([ADR-0018](docs/adr/0018-chiikawa-dex-and-skin-slot.md)) | `S13: chiikawa dex` |
 
 ## Verification (headless Chromium + fake camera)
 
 Without a phone at hand, the page was actually run under Playwright ([ADR-0004](docs/adr/0004-verify-with-fake-camera.md)). The fake camera feed is scikit-image's sample `coffee.png`, a real photo of a coffee cup.
 
-| S1 detection | S4 mask occlusion | S8 scan | S12 half-hidden + parallax | S11 mid-sneak (side) | S10 side placement | S7 collected |
-|---|---|---|---|---|---|---|
-| ![](docs/verify/s1-detection.png) | ![](docs/verify/s4-mask-occlusion.png) | ![](docs/verify/s8-scan.png) | ![](docs/verify/s12-parallax.png) | ![](docs/verify/s11-sneak-mid.png) | ![](docs/verify/s10-side-placement.png) | ![](docs/verify/s7-collected.png) |
+| S1 detection | S4 mask occlusion | S8 scan | S12 half-hidden + parallax | S11 mid-sneak (side) | S10 side placement | S7 collected | S13 placeholder + tap | S13 dex |
+|---|---|---|---|---|---|---|---|---|
+| ![](docs/verify/s1-detection.png) | ![](docs/verify/s4-mask-occlusion.png) | ![](docs/verify/s8-scan.png) | ![](docs/verify/s12-parallax.png) | ![](docs/verify/s11-sneak-mid.png) | ![](docs/verify/s10-side-placement.png) | ![](docs/verify/s7-collected.png) | ![](docs/verify/s13-placeholder.png) | ![](docs/verify/s13-dex.png) |
 
 - Confirmed: scan → `cup` chosen and stored, `cup` detected at 0.69 and locked, glow drawn behind it, charging → pop → idle, the mask hides the sprite along the cup's curved rim, first tap → `collect` (collection 1/6 persisted in localStorage), second tap → `wave`, shutter → `peekaboo-<ts>.jpg` download.
+- S13 (headless, Chromium fake camera, models blocked in the container so the lock was injected): `cup` lock → sneak → idle with species `chiikawa`; 400 draws of the species picker for `cup` gave chiikawa 257 · kurimanju 104 · yoroi_ramen 39, matching the 10:5:2 rarity weights; tap → `collect`, badge ★ 1/15, `peekaboo.collection` persisted with `night:false`; shutter → JPEG with the `치이카와 · 흔함 #Peekaboo` stamp; dex panel shows 주역 1/3 · 친구 0/9 · 갑옷 0/3 with rarity dots and silhouettes.
 - The container renders WebGL in software (SwiftShader), so detection ran at 1–2 Hz there. **Real-device Hz must be checked on a phone.** Use `?res=480` if it is below 10 Hz.
 
 ## Character style preview (toward S6)

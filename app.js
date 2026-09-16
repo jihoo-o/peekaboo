@@ -9,6 +9,7 @@
 // S10: 큰 물체는 옆에서 등장(화면 위 여유 없을 때) + 한 번 맞춘 물체는 이후 즉시 등장
 // S11: 짠! 대신 스을쩍 — 물체에 완전히 가려진 위치에서 뒤뚱거리며 걸어 나오고, 중간에 한 번 움찔 물러난다
 // S12: 패럴랙스 — 평소엔 반쯤 숨어 있고, 폰을 옆·위로 움직이면(물체가 화면에서 치우치면) 뒤에 숨은 캐릭터가 더 드러난다
+// S13: 먼작귀 도감 — 별사탕 6색 대신 캐릭터 15종. 물체 라벨마다 사는 종이 다르고, 희귀도·심야 시크릿·세트가 있다. 그림은 공식 에셋 슬롯(assets/skins/chiikawa/)이며 없으면 이름표 실루엣
 
 const VISION_VERSION = '0.10.35';
 const VISION_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VERSION}`;
@@ -44,14 +45,36 @@ const NEAR_MIN = 0.15, NEAR_MAX = 0.6; // bbox 폭/영상 폭 → 0(멀다)~1(�
 const PARALLAX_X = 0.55;   // 가로 최대 이동 = bbox 폭 × 이 값
 const PARALLAX_Y = 0.35;   // 세로 최대 이동 = bbox 높이 × 이 값 (위에서 내려다볼 때)
 const PARALLAX_SMOOTH = 0.12;
-const SPRITES = [             // 캐릭터 6종 = 별사탕 색. 수집 대상 식별자.
-  { id: 'pink',   color: '#f48fb1', name: '분홍' },
-  { id: 'green',  color: '#81c784', name: '초록' },
-  { id: 'yellow', color: '#fff176', name: '노랑' },
-  { id: 'blue',   color: '#64b5f6', name: '파랑' },
-  { id: 'orange', color: '#ffb74d', name: '주황' },
-  { id: 'purple', color: '#b39ddb', name: '보라' },
+// S13: 먼작귀 도감. 이름은 팬 위키 기준 가칭이며 라이선스 시 공식 캐릭터 시트로 교체한다(docs/preview/chiikawa-lab.html).
+// objects = 이 종이 사는 물체(COCO 라벨). 비어 있으면 어디서도 안 나오고 night 종은 심야(22~05시)에만 어디서든 낮은 확률로 나온다.
+const SKIN = { id: 'chiikawa', dir: './assets/skins/chiikawa/', ext: 'png' }; // <dir>/manifest.json 에 적힌 id의 PNG를 그린다. 없으면 실루엣
+const RARITY = {
+  C: { name: '흔함', w: 10, color: '#B8B2A8' },
+  U: { name: '보통', w: 5,  color: '#5FA36E' },
+  R: { name: '희귀', w: 2,  color: '#4A8DE0' },
+  L: { name: '전설', w: 1,  color: '#E0A020' },
+};
+const SETS = ['주역', '친구', '갑옷'];
+const SPECIES = [
+  { id: 'chiikawa',    name: '치이카와',        jp: 'ちいかわ',            group: '주역', rarity: 'C', color: '#F7F3EA', tone: '#F6B7C2', objects: ['cup', 'bowl', 'bottle', 'teddy bear', 'book', 'backpack', 'chair', 'handbag'] },
+  { id: 'hachiware',   name: '하치와레',        jp: 'ハチワレ',            group: '주역', rarity: 'C', color: '#F7F3EA', tone: '#9EC5EA', objects: ['book', 'laptop', 'keyboard', 'cell phone', 'remote', 'tv', 'scissors', 'mouse'] },
+  { id: 'usagi',       name: '우사기',          jp: 'うさぎ',              group: '주역', rarity: 'C', color: '#FBF5DE', tone: '#F5D26B', objects: ['potted plant', 'sports ball', 'frisbee', 'kite', 'banana', 'carrot', 'skateboard', 'umbrella'] },
+  { id: 'momonga',     name: '모몽가',          jp: 'モモンガ',            group: '친구', rarity: 'U', color: '#F0EEF8', tone: '#C9B6E8', objects: ['laptop', 'mouse', 'keyboard', 'tv', 'clock', 'vase'] },
+  { id: 'kurimanju',   name: '쿠리만쥬',        jp: 'くりまんじゅう',      group: '친구', rarity: 'U', color: '#F2E3C8', tone: '#C7955C', objects: ['bottle', 'wine glass', 'cup', 'couch', 'refrigerator', 'pizza', 'hot dog', 'sandwich'] },
+  { id: 'shisa',       name: '시사',            jp: 'シーサー',            group: '친구', rarity: 'U', color: '#FBE3D5', tone: '#F09A7A', objects: ['chair', 'bench', 'microwave', 'oven', 'toaster', 'donut', 'cake'] },
+  { id: 'futaba',      name: '후타바',          jp: 'ふたば',              group: '친구', rarity: 'U', color: '#EAF3E4', tone: '#7DBB6E', objects: ['potted plant', 'broccoli', 'apple', 'orange', 'vase'] },
+  { id: 'anko',        name: '앙코',            jp: 'あんこ',              group: '친구', rarity: 'U', color: '#EFE6EF', tone: '#8E6B93', objects: ['handbag', 'suitcase', 'umbrella', 'tie', 'cookie', 'cake', 'rice ball'] },
+  { id: 'rakko',       name: '랏코',            jp: 'ラッコ',              group: '친구', rarity: 'R', color: '#E9E1D3', tone: '#8C7A63', objects: ['knife', 'fork', 'spoon', 'sink', 'toothbrush', 'baseball bat', 'tennis racket', 'baseball glove'] },
+  { id: 'kani',        name: '카니',            jp: 'カニ',                group: '친구', rarity: 'R', color: '#FBDDD5', tone: '#E8705C', objects: ['sink', 'toilet', 'hair drier', 'surfboard', 'skis', 'snowboard'] },
+  { id: 'pajama',      name: '파자마 파티즈',   jp: 'パジャマパーティーズ', group: '친구', rarity: 'R', color: '#EEE9F7', tone: '#A9A0D6', objects: ['couch', 'teddy bear', 'clock', 'tv'] },
+  { id: 'seiren',      name: '세이렌',          jp: 'セイレーン',          group: '친구', rarity: 'L', color: '#DDEDF2', tone: '#4FA3B5', objects: [], night: true },
+  { id: 'yoroi_ramen', name: '라면 가게 갑옷',  jp: '鎧さん（ラーメン）',   group: '갑옷', rarity: 'R', color: '#DCDCE0', tone: '#6B6B75', objects: ['bowl', 'cup', 'spoon', 'fork', 'microwave', 'sink', 'bottle'] },
+  { id: 'yoroi_info',  name: '안내소 갑옷',     jp: '鎧さん（案内所）',     group: '갑옷', rarity: 'R', color: '#DCDCE0', tone: '#6B6B75', objects: ['book', 'laptop', 'clock', 'cell phone', 'backpack', 'suitcase'] },
+  { id: 'yoroi_kusa',  name: '풀뽑기 검정 갑옷', jp: '鎧さん（草むしり）',   group: '갑옷', rarity: 'R', color: '#DCDCE0', tone: '#6B6B75', objects: ['potted plant', 'scissors', 'broccoli', 'carrot', 'bench'] },
 ];
+const SPRITES = SPECIES; // 기존 호출부 유지
+const speciesById = (id) => SPECIES.find((s) => s.id === id);
+const isNight = (d = new Date()) => d.getHours() >= 22 || d.getHours() < 5; // 심야 시크릿
 const store = {
   get(k, d) { try { const v = localStorage.getItem('peekaboo.' + k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem('peekaboo.' + k, JSON.stringify(v)); } catch {} },
@@ -90,7 +113,7 @@ const state = {
   scan: { start: 0, seen: {} },             // seen[label] = { n, maxW }
   near: 0,                                  // 0~1 대상 물체와의 가까움(bbox 폭 기준)
   parallax: { x: 0, y: 0 },                 // S12: 스무딩된 화면 내 치우침 (-1~1)
-  collection: store.get('collection', []),  // [{ id, label, at }]
+  collection: store.get('collection', []).filter((c) => SPECIES.some((s) => s.id === c.id)),  // [{ id, label, at, night }] S13: 옛 별사탕 id는 버림
   hits: 0,                                  // 현재 락의 연속 매칭 횟수
   // S4
   segTimes: [], segBusy: false, lastSegAt: 0,
@@ -413,12 +436,40 @@ const confirmed = () => !!state.lock && state.hits >= CONFIRM_HITS; // S7: 타�
 
 function isCollected(id) { return state.collection.some((c) => c.id === id); }
 
-// S7: 등장할 캐릭터 고르기 — 미수집이 남아 있으면 70% 확률로 미수집 중에서
+// S7 → S13: 등장할 종 고르기. 물체 라벨에 사는 종 중에서 희귀도 가중치로 뽑고, 미수집이 남았으면 70% 확률로 미수집 중에서.
+// 라벨에 사는 종이 없으면 주역 3. 심야엔 세이렌이 어디서든 후보에 들어간다(가중치 1).
 function pickSprite() {
-  const left = SPRITES.filter((s) => !isCollected(s.id));
-  const pool = left.length && Math.random() < 0.7 ? left : SPRITES;
-  return pool[Math.floor(Math.random() * pool.length)];
+  const label = state.lock?.label ?? state.home?.label;
+  let pool = SPECIES.filter((sp) => !sp.night && sp.objects.includes(label));
+  if (!pool.length) pool = SPECIES.filter((sp) => sp.group === '주역');
+  if (isNight()) pool = pool.concat(SPECIES.filter((sp) => sp.night));
+  const left = pool.filter((sp) => !isCollected(sp.id));
+  if (left.length && Math.random() < 0.7) pool = left;
+  const total = pool.reduce((a, sp) => a + RARITY[sp.rarity].w, 0);
+  let r = Math.random() * total;
+  for (const sp of pool) { r -= RARITY[sp.rarity].w; if (r <= 0) return sp; }
+  return pool[pool.length - 1];
 }
+state.pickSprite = pickSprite; // 디버그용
+
+// S13: 스킨 이미지. manifest.json에 적힌 id만 로드한다(없는 파일로 404를 내지 않기 위해).
+const skinImages = {}; // id → HTMLImageElement | null
+async function loadSkin() {
+  if (params.get('skin') === 'none') return;
+  try {
+    const res = await fetch(SKIN.dir + 'manifest.json', { cache: 'no-cache' });
+    if (!res.ok) return;
+    const ids = await res.json();
+    for (const id of ids) {
+      if (!speciesById(id)) continue;
+      const img = new Image();
+      img.onload = () => { skinImages[id] = img; };
+      img.onerror = () => { skinImages[id] = null; };
+      img.src = `${SKIN.dir}${id}.${SKIN.ext}`;
+    }
+  } catch (e) { console.warn('skin manifest', e); }
+}
+loadSkin();
 
 // 상태 전이. progress 0=숨김(bbox.y+0.6h), 1=완전 등장(bbox.y+0.15h)
 function updateCharacter(now) {
@@ -480,9 +531,70 @@ function drawCandy(ctx, x, y, rr, color, t) {
   ctx.restore();
 }
 
-// S7: 검댕이 — 까만 털뭉치 몸 + 큰 흰 눈. (cx, cy)=하단 중심, size=폭.
-// opts: { sprite, collected, waving, collecting, collectT }
+// S13: 캐릭터 그리기 진입점. 종에 공식 스킨이 있으면 이미지, 없으면 이름표 실루엣, 종이 없으면 예전 검댕이.
+// opts: { sprite, collected, waving, collecting, collectT, tilt }
 function drawCharacter(ctx, cx, cy, size, t, opts = {}) {
+  const sp = opts.sprite;
+  if (sp && skinImages[sp.id]) return drawSkin(ctx, skinImages[sp.id], cx, cy, size, t, opts);
+  if (sp) return drawPlaceholder(ctx, sp, cx, cy, size, t, opts);
+  return drawSoot(ctx, cx, cy, size, t, opts);
+}
+// 미수집 "!" 말풍선과 수집 반짝이. 세 렌더러가 공유한다.
+function drawBadges(ctx, cx, bodyCy, r, size, t, opts) {
+  if (opts.sprite && !opts.collected && !opts.collecting) {
+    ctx.globalAlpha = 1;
+    const bx = cx + r * 0.95, by = bodyCy - r * 1.25 + Math.sin(t / 300) * r * 0.05;
+    ctx.fillStyle = '#ffd54f'; ctx.beginPath(); ctx.arc(bx, by, r * 0.22, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#333'; ctx.font = `bold ${r * 0.3}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('!', bx, by + r * 0.01);
+  }
+  if (opts.collecting) {
+    ctx.globalAlpha = 1 - Math.min(opts.collectT, 1);
+    ctx.strokeStyle = opts.sprite?.tone ?? '#fff'; ctx.lineWidth = Math.max(2, size * 0.03);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2, d0 = r * (1.2 + opts.collectT * 0.8), d1 = d0 + r * 0.25;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * d0, bodyCy + Math.sin(a) * d0); ctx.lineTo(cx + Math.cos(a) * d1, bodyCy + Math.sin(a) * d1); ctx.stroke();
+    }
+  }
+}
+// 공식 PNG 스킨. 투명 배경, 하단 중심 정렬. 폭을 size에 맞추고 뒤뚱거림·흔들기는 회전으로.
+function drawSkin(ctx, img, cx, cy, size, t, opts) {
+  const r = size / 2, bodyCy = cy - r;
+  const w = size * 1.1, h = w * (img.naturalHeight / img.naturalWidth);
+  const wobble = (opts.waving ? Math.sin(t / 60) * 0.08 : 0) + (opts.tilt ?? 0);
+  ctx.save();
+  ctx.globalAlpha = opts.collected ? 1 : 0.86;
+  ctx.translate(cx, cy); ctx.rotate(wobble); ctx.translate(-cx, -cy);
+  ctx.drawImage(img, cx - w / 2, cy - h, w, h);
+  drawBadges(ctx, cx, bodyCy, r, size, t, opts);
+  ctx.restore();
+}
+// 공식 에셋이 아직 없을 때의 자리 표시. 종의 색과 이름표만 있고 특정 캐릭터의 생김새는 흉내 내지 않는다.
+function drawPlaceholder(ctx, sp, cx, cy, size, t, opts) {
+  const r = size / 2, bodyCy = cy - r;
+  const blink = (t % 3400) < 110;
+  const wobble = (opts.waving ? Math.sin(t / 60) * 0.08 : 0) + (opts.tilt ?? 0);
+  ctx.save();
+  ctx.globalAlpha = opts.collected ? 1 : 0.86;
+  ctx.translate(cx, bodyCy); ctx.rotate(wobble); ctx.translate(-cx, -bodyCy);
+  ctx.fillStyle = sp.color; ctx.strokeStyle = '#3B322C'; ctx.lineWidth = Math.max(2, size * 0.035);
+  ctx.beginPath(); ctx.ellipse(cx, bodyCy, r, r * 0.95, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = sp.tone; // 볼
+  for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(cx + sx * r * 0.55, bodyCy + r * 0.12, r * 0.17, r * 0.11, 0, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = '#3B322C'; // 점 눈
+  for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(cx + sx * r * 0.3, bodyCy - r * 0.08, r * 0.06, blink ? r * 0.012 : r * 0.07, 0, 0, Math.PI * 2); ctx.fill(); }
+  ctx.strokeStyle = '#3B322C'; ctx.lineWidth = Math.max(1.5, size * 0.02); ctx.lineCap = 'round'; // ω 입
+  ctx.beginPath(); ctx.arc(cx - r * 0.06, bodyCy + r * 0.22, r * 0.06, 0, Math.PI); ctx.arc(cx + r * 0.06, bodyCy + r * 0.22, r * 0.06, 0, Math.PI); ctx.stroke();
+  // 이름표
+  ctx.font = `bold ${Math.max(10, r * 0.26)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tw = ctx.measureText(sp.name).width + r * 0.4, th = r * 0.36, ty = cy + th * 0.7;
+  ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.beginPath(); ctx.roundRect(cx - tw / 2, ty - th / 2, tw, th, th / 2); ctx.fill();
+  ctx.fillStyle = '#3B322C'; ctx.fillText(sp.name, cx, ty + 1);
+  drawBadges(ctx, cx, bodyCy, r, size, t, opts);
+  ctx.restore();
+}
+// S7: 검댕이 — 까만 털뭉치 몸 + 큰 흰 눈. (cx, cy)=하단 중심, size=폭. S13 이후엔 종이 없을 때만 쓴다.
+function drawSoot(ctx, cx, cy, size, t, opts = {}) {
   const r = size / 2;
   const bodyCy = cy - r;
   const blink = (t % 3400) < 110;
@@ -674,7 +786,7 @@ function render(t) {
     `lock ${state.lock ? state.lock.label : '-'} | miss ${(state.missMs / 1000).toFixed(1)}s | char ${state.char.state}\n` +
     `mask ${USE_MASK ? (state.mask ? 'on' : 'none') : 'off'} | rej ${state.maskRejects}\n` +
     `phase ${state.phase} | home ${state.home?.label ?? '-'}${state.home?.solved ? '✓' : ''} | near ${state.near.toFixed(2)} | hits ${state.hits}\n` +
-    `sprite ${state.char.sprite?.id ?? '-'} | col ${state.collection.length}/${SPRITES.length} | px ${state.parallax.x.toFixed(2)} py ${state.parallax.y.toFixed(2)}` +
+    `sprite ${state.char.sprite?.id ?? '-'}${isNight() ? ' night' : ''} | col ${state.collection.length}/${SPECIES.length} | px ${state.parallax.x.toFixed(2)} py ${state.parallax.y.toFixed(2)}` +
     (state.error ? `\nERR ${state.error}` : '');
   requestAnimationFrame(render);
 }
@@ -692,7 +804,7 @@ function onTap(ev) {
   const r = p.size / 2, bx = p.cx, by = p.cy - r;
   if (Math.hypot(x - bx, y - by) > r * 1.3) return;
   if (c.sprite && !isCollected(c.sprite.id)) {
-    state.collection.push({ id: c.sprite.id, label: state.lock?.label ?? '?', at: Date.now() });
+    state.collection.push({ id: c.sprite.id, label: state.lock?.label ?? '?', at: Date.now(), night: isNight() });
     store.set('collection', state.collection);
     c.state = 'collect'; c.since = performance.now();
     renderBadge();
@@ -700,11 +812,25 @@ function onTap(ev) {
 }
 canvas.addEventListener('pointerdown', onTap);
 
+// S13: 공유 사진에 종 이름·희귀도 스탬프(자랑 장치). 캐릭터가 나와 있을 때만.
+function stampedCanvas() {
+  const c = state.char, sp = c.sprite;
+  if (!sp || !['idle', 'wave', 'collect'].includes(c.state)) return canvas;
+  const out = document.createElement('canvas'); out.width = canvas.width; out.height = canvas.height;
+  const g = out.getContext('2d'); g.drawImage(canvas, 0, 0);
+  const dpr = canvas.width / canvas.clientWidth, fs = 15 * dpr, pad = 10 * dpr;
+  const text = `${sp.name} · ${RARITY[sp.rarity].name}${isNight() ? ' · 심야' : ''}  #Peekaboo`;
+  g.font = `bold ${fs}px system-ui, sans-serif`; g.textBaseline = 'middle';
+  const w = g.measureText(text).width + pad * 2, h = fs * 2, x = pad, y = canvas.height - h - pad * 3;
+  g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.roundRect(x, y, w, h, h / 2); g.fill();
+  g.fillStyle = '#fff'; g.fillText(text, x + pad, y + h / 2);
+  return out;
+}
 // 셔터: 캔버스 → JPEG → Web Share API, 안 되면 다운로드
 async function shoot() {
   shutterBtn.disabled = true;
   try {
-    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.9));
+    const blob = await new Promise((r) => stampedCanvas().toBlob(r, 'image/jpeg', 0.9));
     const file = new File([blob], `peekaboo-${Date.now()}.jpg`, { type: 'image/jpeg' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title: 'Peekaboo AR' });
@@ -728,30 +854,47 @@ function updateHint() {
     const n = Object.keys(state.scan.seen).length;
     text = n ? `주변을 천천히 둘러보세요… 물체 ${n}개 발견` : '주변을 천천히 둘러보세요';
   }
-  else if (!state.lock) text = '이 공간 어딘가에 검댕이가 숨어 있어요. 빛나는 물건을 찾아보세요';
+  else if (!state.lock) text = isNight() ? '심야에는 세이렌이 나올지도… 빛나는 물건을 찾아보세요' : '이 공간 어딘가에 먼작귀가 숨어 있어요. 빛나는 물건을 찾아보세요';
   else if (c.state === 'hidden' || c.state === 'hide') text = state.home?.solved ? '' : state.near < 0.5 ? '빛이 보여요! 더 가까이…' : '여기다! 가만히 비춰보세요';
   else if (c.state === 'charging') text = `뭔가 나올 것 같아… (${Math.max(0, Math.ceil((HOLD_MS - (performance.now() - c.since)) / 1000))})`;
-  else if (c.state === 'idle' && c.sprite && !isCollected(c.sprite.id)) text = '탭해서 수집!';
+  else if (c.state === 'idle' && c.sprite && !isCollected(c.sprite.id)) text = `${c.sprite.name}! 탭해서 잡기`;
+  else if (c.state === 'idle' && c.sprite) text = `${c.sprite.name} (이미 도감에 있음)`;
   if (msg.textContent !== text) msg.textContent = text;
 }
 
 // ---- S7: 도감 UI ----
 const badge = document.getElementById('badge');
 const panel = document.getElementById('panel');
-function renderBadge() { badge.textContent = `★ ${state.collection.length}/${SPRITES.length}`; }
+function renderBadge() { badge.textContent = `★ ${state.collection.length}/${SPECIES.length}`; }
+// S13: 세트(주역·친구·갑옷)별 그리드. 미수집은 실루엣 + "???" + 희귀도, 심야 종은 힌트. 세트를 다 채우면 표시.
 function renderPanel() {
   const slots = panel.querySelector('#slots');
   slots.innerHTML = '';
-  for (const s of SPRITES) {
-    const got = state.collection.find((c) => c.id === s.id);
-    const el = document.createElement('div'); el.className = 'slot' + (got ? ' got' : '');
-    const cv = document.createElement('canvas'); cv.width = cv.height = 96;
-    const g = cv.getContext('2d');
-    if (got) drawCharacter(g, 48, 84, 52, 1000, { sprite: s, collected: true });
-    else { g.globalAlpha = 0.25; drawCharacter(g, 48, 84, 52, 1000, {}); }
-    el.appendChild(cv);
-    const cap = document.createElement('div'); cap.textContent = got ? `${s.name} · ${got.label}` : '???';
-    el.appendChild(cap); slots.appendChild(el);
+  for (const setName of SETS) {
+    const members = SPECIES.filter((sp) => sp.group === setName);
+    const n = members.filter((sp) => isCollected(sp.id)).length;
+    const group = document.createElement('div'); group.className = 'group';
+    const h = document.createElement('h3');
+    h.innerHTML = `${setName} <small>${n} / ${members.length}</small>` + (n === members.length ? ' <em>세트 완성</em>' : '');
+    group.appendChild(h);
+    const grid = document.createElement('div'); grid.className = 'grid';
+    for (const sp of members) {
+      const got = state.collection.find((c) => c.id === sp.id);
+      const el = document.createElement('div'); el.className = 'slot' + (got ? ' got' : '');
+      el.style.setProperty('--rar', RARITY[sp.rarity].color);
+      const cv = document.createElement('canvas'); cv.width = cv.height = 96;
+      const g = cv.getContext('2d');
+      if (got) drawCharacter(g, 48, 84, 52, 1000, { sprite: sp, collected: true });
+      else {
+        g.fillStyle = '#c9c2b6'; g.beginPath(); g.ellipse(48, 58, 26, 25, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#fff'; g.font = 'bold 18px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', 48, 60);
+      }
+      el.appendChild(cv);
+      const cap = document.createElement('div');
+      cap.textContent = got ? `${sp.name} · ${got.label}${got.night ? ' · 심야' : ''}` : (sp.night ? `??? · 심야에만` : `??? · ${RARITY[sp.rarity].name}`);
+      el.appendChild(cap); grid.appendChild(el);
+    }
+    group.appendChild(grid); slots.appendChild(group);
   }
   panel.querySelector('#home').textContent = state.home
     ? `숨은 곳: ${state.home.solved ? state.home.label + ' (맞춤!)' : '??? (빛나는 물건을 찾아보세요)'} · 스캔에서 본 물체: ${(state.home.seen ?? [state.home.label]).join(', ')}`
