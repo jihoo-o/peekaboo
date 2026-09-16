@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+</head>
+<body style="margin:0">
+<title>Fluent 이모지 모션 시트</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --bg: #F6F3EC; --card: #FFFFFF; --view: #FBFAF6; --ink: #2B2620; --ink-2: #6F675C; --line: #E3DDD2;
+    --accent: #FAE100; --accent-ink: #3C1E1E; --ledge: #D9D2E9; --ledge-line: #B9AFD1; --tear: #7FBDEF; --spark: #F5B800; --focus: #2F6FE4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1A1815; --card: #24211D; --view: #2C2823; --ink: #F3EFE8; --ink-2: #ABA396; --line: #3A352E;
+      --accent: #FAE100; --accent-ink: #3C1E1E; --ledge: #4A4460; --ledge-line: #6B6388; --tear: #8FC6F0; --spark: #FFD34D; --focus: #7FA6F5;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1A1815; --card: #24211D; --view: #2C2823; --ink: #F3EFE8; --ink-2: #ABA396; --line: #3A352E;
+    --accent: #FAE100; --accent-ink: #3C1E1E; --ledge: #4A4460; --ledge-line: #6B6388; --tear: #8FC6F0; --spark: #FFD34D; --focus: #7FA6F5;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif; font-size: 15px; line-height: 1.6; padding-inline: 16px; padding-block: 20px 40px; }
+  .wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+  h1, h2, h3, .seg button, .bang, .rule b { font-family: "Jua", "Noto Sans KR", system-ui, sans-serif; font-weight: 400; }
+  h1 { font-size: clamp(26px, 3.6vw, 36px); line-height: 1.15; margin: 0; text-wrap: balance; }
+  h1 em { font-style: normal; background: var(--accent); color: var(--accent-ink); padding: 0 8px; border-radius: 10px; }
+  .top p { margin: 6px 0 0; color: var(--ink-2); max-width: 66ch; }
+  h2 { font-size: 21px; margin: 0 0 4px; }
+  .sub { margin: 0 0 10px; color: var(--ink-2); font-size: 14px; max-width: 80ch; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 12px 18px; display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+  .seg { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .seg > span { font-size: 14px; color: var(--ink-2); margin-right: 4px; }
+  .seg button { border: 1px solid var(--line); background: var(--view); color: var(--ink); border-radius: 999px; padding: 4px 13px; font-size: 15px; cursor: pointer; }
+  .seg button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .seg button:focus-visible, .tile:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .hint { font-size: 13px; color: var(--ink-2); }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 14px; }
+  .tile { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px 6px; border-radius: 14px; background: var(--view); cursor: pointer; user-select: none; }
+  .tile.top { outline: 2px solid var(--accent); }
+  .stage { position: relative; width: 108px; height: 108px; max-width: 100%; overflow: hidden; border-radius: 10px; }
+  .fig { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transform-origin: 50% 90%; will-change: transform; }
+  .fig img { width: 88px; height: 88px; max-width: 100%; display: block; }
+  .fx { position: absolute; inset: 0; pointer-events: none; }
+  .fx > * { position: absolute; opacity: 0; }
+  .ledge { position: absolute; left: -4px; right: -4px; bottom: -2px; height: 34%; background: var(--ledge); border-top: 3px solid var(--ledge-line); border-radius: 6px 6px 0 0; z-index: 2; display: none; }
+  figcaption { font-size: 12.5px; text-align: center; line-height: 1.25; }
+  figcaption small { display: block; color: var(--ink-2); font-size: 10.5px; letter-spacing: .02em; }
+  /* ---- 이모티콘 모션 문법 ---- */
+  .m-bounce .fig { animation: bounce .9s cubic-bezier(.3,.8,.4,1) infinite; }
+  @keyframes bounce { 0%,100% { transform: translateY(0) scale(1.06,.94); } 35% { transform: translateY(-16%) scale(.96,1.06); } 55% { transform: translateY(-14%) scale(1,1); } }
+  .m-shiver .fig { animation: shiver .14s linear infinite; }
+  @keyframes shiver { 0%,100% { transform: translateX(-2px) rotate(-1deg); } 50% { transform: translateX(2px) rotate(1deg); } }
+  .m-shiver .line { opacity: 1; width: 3px; height: 14px; background: var(--ink-2); border-radius: 2px; top: 38%; animation: lines .28s linear infinite; }
+  .m-shiver .l1 { left: 8%; transform: rotate(-12deg); } .m-shiver .l2 { right: 8%; transform: rotate(12deg); animation-delay: .14s; }
+  @keyframes lines { 0%,100% { opacity: .9; } 50% { opacity: .2; } }
+  .m-shake .fig { animation: shake .7s ease-in-out infinite; }
+  @keyframes shake { 0%,100% { transform: rotate(0) translateX(0); } 25% { transform: rotate(-10deg) translateX(-5%); } 75% { transform: rotate(10deg) translateX(5%); } }
+  .m-nod .fig { animation: nod .8s ease-in-out infinite; }
+  @keyframes nod { 0%,100% { transform: rotate(0) translateY(0); } 45% { transform: rotate(9deg) translateY(5%); } }
+  .m-pop .fig { animation: pop 2.6s cubic-bezier(.34,1.56,.64,1) infinite; }
+  @keyframes pop { 0% { transform: scale(0); opacity: 0; } 14% { transform: scale(1.22); opacity: 1; } 22% { transform: scale(.94); } 30%,82% { transform: scale(1); opacity: 1; } 92%,100% { transform: scale(0); opacity: 0; } }
+  .m-pop .bang { opacity: 0; left: 50%; top: 4%; transform: translateX(-50%); font-size: 20px; color: var(--ink); -webkit-text-stroke: 3px var(--card); paint-order: stroke fill; animation: bang 2.6s ease-out infinite; }
+  @keyframes bang { 10% { opacity: 0; transform: translateX(-50%) scale(.5); } 16% { opacity: 1; transform: translateX(-50%) scale(1.15); } 30% { opacity: 1; transform: translateX(-50%) scale(1); } 45%,100% { opacity: 0; transform: translateX(-50%) scale(1) translateY(-6px); } }
+  .m-pop .line { width: 3px; height: 12px; background: var(--spark); border-radius: 2px; top: 20%; animation: burst 2.6s ease-out infinite; }
+  .m-pop .l1 { left: 18%; transform: rotate(-30deg); } .m-pop .l2 { right: 18%; transform: rotate(30deg); }
+  @keyframes burst { 12% { opacity: 0; } 16% { opacity: 1; } 32%,100% { opacity: 0; } }
+  .m-peek .ledge { display: block; }
+  .m-peek .fig { animation: peek 3.2s ease-in-out infinite; }
+  @keyframes peek { 0% { transform: translateY(70%); } 22% { transform: translateY(6%); } 55% { transform: translateY(6%); } 62% { transform: translateY(48%); } 74% { transform: translateY(6%); } 90% { transform: translateY(6%); } 100% { transform: translateY(70%); } }
+  .m-look .fig { animation: look 2.6s ease-in-out infinite; }
+  @keyframes look { 0%,100% { transform: translateX(0) rotate(0); } 28%,46% { transform: translateX(-9%) rotate(-4deg); } 64%,84% { transform: translateX(9%) rotate(4deg); } }
+  .m-tears .fig { animation: sob .5s ease-in-out infinite; }
+  @keyframes sob { 0%,100% { transform: translateY(0) scale(1,1); } 50% { transform: translateY(3%) scale(1.03,.97); } }
+  .m-tears .tear { opacity: 1; width: 9px; height: 13px; background: var(--tear); border-radius: 50% 50% 55% 55%; top: 44%; animation: tear .9s ease-in infinite; }
+  .m-tears .t1 { left: 30%; } .m-tears .t2 { right: 30%; animation-delay: .45s; }
+  @keyframes tear { 0% { transform: translateY(0) scale(.6); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(44px) scale(1); opacity: 0; } }
+  .m-sparkle .fig { animation: floaty 2.2s ease-in-out infinite; }
+  @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6%); } }
+  .m-sparkle .sp { opacity: 1; width: 12px; height: 12px; background: var(--spark); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: spark 1.4s ease-in-out infinite; }
+  .m-sparkle .s1 { left: 10%; top: 16%; } .m-sparkle .s2 { right: 10%; top: 30%; animation-delay: .45s; } .m-sparkle .s3 { left: 18%; bottom: 14%; animation-delay: .9s; }
+  @keyframes spark { 0%,100% { transform: scale(.2) rotate(0); opacity: .2; } 50% { transform: scale(1) rotate(45deg); opacity: 1; } }
+  .fig.squash { animation: squash .6s cubic-bezier(.34,1.56,.64,1) 1 !important; }
+  @keyframes squash { 0% { transform: scale(1,1); } 25% { transform: scale(1.28,.68) translateY(4%); } 55% { transform: scale(.9,1.12) translateY(-6%); } 100% { transform: scale(1,1); } }
+  .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .rule { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; font-size: 13px; color: var(--ink-2); }
+  .rule b { display: block; font-size: 16px; color: var(--ink); margin-bottom: 2px; }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .notes section { border-top: 3px solid var(--accent); padding-top: 10px; }
+  .notes h3 { font-size: 15px; margin: 0 0 6px; }
+  .notes p, .notes li { color: var(--ink-2); font-size: 14px; margin: 0; }
+  .notes ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+  .notes code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--view); padding: 1px 6px; border-radius: 6px; }
+  .notes a { color: inherit; }
+  @media (prefers-reduced-motion: reduce) { .fig, .fx > * { animation: none !important; } .m-peek .fig { transform: translateY(6%); } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Fluent 3D 이모지 <em>움직이는 이모티콘</em> 시트</h1>
+    <p>59종 중 45종은 Microsoft가 MIT로 공개한 공식 애니메이션(APNG)이 있어서 그대로 돌리고, 나머지 14종은 정지 이미지에 이모티콘 모션을 입혔습니다. 위 버튼으로 모션을 바꾸면 59칸 전부에 적용되고, 칸을 탭하면 찌그러졌다 튕깁니다. 공식 애니메이션은 128px 애니 WebP로 줄여 넣었습니다.</p>
+  </header>
+
+  <section class="panel" aria-label="모션">
+    <div class="seg" role="radiogroup" aria-label="모션 선택">
+      <span>모션</span>
+      <button role="radio" aria-checked="true" data-motion="mix" id="mo-mix">믹스(시트)</button>
+      <button role="radio" aria-checked="false" data-motion="none" id="mo-none">공식만</button>
+      <button role="radio" aria-checked="false" data-motion="bounce" id="mo-bounce">통통</button>
+      <button role="radio" aria-checked="false" data-motion="shiver" id="mo-shiver">덜덜</button>
+      <button role="radio" aria-checked="false" data-motion="shake" id="mo-shake">도리도리</button>
+      <button role="radio" aria-checked="false" data-motion="nod" id="mo-nod">끄덕</button>
+      <button role="radio" aria-checked="false" data-motion="pop" id="mo-pop">짠!</button>
+      <button role="radio" aria-checked="false" data-motion="peek" id="mo-peek">빼꼼</button>
+      <button role="radio" aria-checked="false" data-motion="look" id="mo-look">두리번</button>
+      <button role="radio" aria-checked="false" data-motion="tears" id="mo-tears">눈물</button>
+      <button role="radio" aria-checked="false" data-motion="sparkle" id="mo-sparkle">반짝</button>
+    </div>
+    <span class="hint">탭 = 찌그러짐 · 노란 테두리 = Peekaboo 후보</span>
+  </section>
+
+  <section>
+    <div class="gallery" id="gallery">
+<figure class="tile top" data-mix="peek" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/ghost.webp" alt="유령" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>유령<small>공식 73f · 3.1s</small></figcaption></figure>
+<figure class="tile top" data-mix="look" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/seal.webp" alt="물범" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>물범<small>공식 66f · 2.8s</small></figcaption></figure>
+<figure class="tile top" data-mix="pop" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/hatching_chick.webp" alt="알 깨는 병아리" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>알 깨는 병아리<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile top" data-mix="bounce" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/potato.png" alt="감자" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>감자<small>정지 이미지 + 모션</small></figcaption></figure>
+<figure class="tile top" data-mix="shiver" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/hamster.webp" alt="햄스터" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>햄스터<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile top" data-mix="nod" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/bread.png" alt="식빵" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>식빵<small>정지 이미지 + 모션</small></figcaption></figure>
+<figure class="tile top" data-mix="peek" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/mushroom.png" alt="버섯" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>버섯<small>정지 이미지 + 모션</small></figcaption></figure>
+<figure class="tile top" data-mix="tears" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/melting_face.png" alt="녹는 얼굴" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>녹는 얼굴<small>정지 이미지 + 모션</small></figcaption></figure>
+<figure class="tile top" data-mix="tears" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/loudly_crying_face.webp" alt="엉엉 얼굴" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>엉엉 얼굴<small>공식 73f · 3.1s</small></figcaption></figure>
+<figure class="tile top" data-mix="sparkle" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/teddy_bear.webp" alt="곰인형" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>곰인형<small>공식 69f · 2.9s</small></figcaption></figure>
+<figure class="tile" data-mix="bounce" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/baby_chick.webp" alt="병아리" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>병아리<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="shiver" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/hedgehog.webp" alt="고슴도치" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>고슴도치<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="nod" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/beaver.webp" alt="비버" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>비버<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="look" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/otter.webp" alt="수달" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>수달<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="peek" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/mouse_face.webp" alt="쥐" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>쥐<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="nod" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/bear.webp" alt="곰" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>곰<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="look" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/koala.webp" alt="코알라" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>코알라<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="bounce" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/panda.webp" alt="판다" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>판다<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="pop" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/frog.webp" alt="개구리" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>개구리<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="look" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/sloth.webp" alt="나무늘보" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>나무늘보<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="shiver" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/snail.webp" alt="달팽이" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>달팽이<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="sparkle" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/cloud.webp" alt="구름" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>구름<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="bounce" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/dumpling.png" alt="만두" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>만두<small>정지 이미지 + 모션</small></figcaption></figure>
+<figure class="tile" data-mix="shake" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/rice_ball.png" alt="주먹밥" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>주먹밥<small>정지 이미지 + 모션</small></figcaption></figure>
+<figure class="tile" data-mix="shiver" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/egg.png" alt="계란" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>계란<small>정지 이미지 + 모션</small></figcaption></figure>
+<figure class="tile" data-mix="look" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/alien.webp" alt="외계인" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>외계인<small>공식 73f · 3.1s</small></figcaption></figure>
+<figure class="tile" data-mix="shake" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/alien_monster.webp" alt="외계 몬스터" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>외계 몬스터<small>공식 63f · 2.6s</small></figcaption></figure>
+<figure class="tile" data-mix="nod" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/robot.webp" alt="로봇" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>로봇<small>공식 52f · 2.2s</small></figcaption></figure>
+<figure class="tile" data-mix="pop" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/blowfish.webp" alt="복어" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>복어<small>공식 61f · 2.6s</small></figcaption></figure>
+<figure class="tile" data-mix="peek" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/turtle.webp" alt="거북" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>거북<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="shake" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/penguin.webp" alt="펭귄" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>펭귄<small>공식 48f · 2.0s</small></figcaption></figure>
+<figure class="tile" data-mix="bounce" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/duck.webp" alt="오리" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>오리<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="peek" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/chipmunk.webp" alt="다람쥐" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>다람쥐<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="nod" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/pig_face.webp" alt="돼지" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>돼지<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="bounce" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/rabbit_face.webp" alt="토끼" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>토끼<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="shake" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/dog_face.webp" alt="강아지" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>강아지<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="look" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/cat_face.webp" alt="고양이" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>고양이<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="nod" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/polar_bear.webp" alt="북극곰" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>북극곰<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="bounce" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/ewe.webp" alt="양" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>양<small>공식 65f · 2.7s</small></figcaption></figure>
+<figure class="tile" data-mix="sparkle" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/cookie.png" alt="쿠키" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>쿠키<small>정지 이미지 + 모션</small></figcaption></figure>
+<figure class="tile" data-mix="shake" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/rice_cracker.png" alt="센베이" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>센베이<small>정지 이미지 + 모션</small></figcaption></figure>
+<figure class="tile" data-mix="shiver" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/shaved_ice.png" alt="빙수" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>빙수<small>정지 이미지 + 모션</small></figcaption></figure>
+<figure class="tile" data-mix="shake" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/cat_with_tears_of_joy.webp" alt="웃다 우는 고양이" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>웃다 우는 고양이<small>공식 49f · 2.1s</small></figcaption></figure>
+<figure class="tile" data-mix="tears" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/crying_cat.webp" alt="우는 고양이" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>우는 고양이<small>공식 93f · 3.9s</small></figcaption></figure>
+<figure class="tile" data-mix="tears" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/weary_cat.webp" alt="지친 고양이" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>지친 고양이<small>공식 63f · 2.6s</small></figcaption></figure>
+<figure class="tile" data-mix="shiver" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/pleading_face.webp" alt="애원 얼굴" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>애원 얼굴<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="tears" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/smiling_face_with_tear.webp" alt="눈물 미소" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>눈물 미소<small>공식 67f · 2.8s</small></figcaption></figure>
+<figure class="tile" data-mix="shiver" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/face_holding_back_tears.webp" alt="울음 참기" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>울음 참기<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="bounce" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/poodle.webp" alt="푸들" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>푸들<small>공식 56f · 2.4s</small></figcaption></figure>
+<figure class="tile" data-mix="sparkle" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/sparkles.png" alt="반짝" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>반짝<small>정지 이미지 + 모션</small></figcaption></figure>
+<figure class="tile" data-mix="nod" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/cactus.png" alt="선인장" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>선인장<small>정지 이미지 + 모션</small></figcaption></figure>
+<figure class="tile" data-mix="sparkle" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/blossom.png" alt="꽃" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>꽃<small>정지 이미지 + 모션</small></figcaption></figure>
+<figure class="tile" data-mix="look" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/bug.webp" alt="애벌레" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>애벌레<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="pop" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/lady_beetle.webp" alt="무당벌레" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>무당벌레<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="shake" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/honeybee.webp" alt="꿀벌" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>꿀벌<small>공식 73f · 3.1s</small></figcaption></figure>
+<figure class="tile" data-mix="shiver" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/snowman.webp" alt="눈사람" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>눈사람<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="shake" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/snowman_without_snow.webp" alt="눈사람(눈 없음)" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>눈사람(눈 없음)<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="bounce" data-official="1"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d-anim/pile_of_poo.webp" alt="응가" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>응가<small>공식 72f · 3.0s</small></figcaption></figure>
+<figure class="tile" data-mix="nod" data-official="0"><div class="stage"><div class="ledge"></div><div class="fig"><img src="fluent3d/baby_bottle.png" alt="젖병" loading="lazy" width="128" height="128"></div><div class="fx"><span class="tear t1"></span><span class="tear t2"></span><span class="sp s1"></span><span class="sp s2"></span><span class="sp s3"></span><span class="bang">짠!</span><span class="line l1"></span><span class="line l2"></span></div></div><figcaption>젖병<small>정지 이미지 + 모션</small></figcaption></figure>    </div>
+  </section>
+
+  <section>
+    <h2>여기서 쓴 이모티콘 모션 문법 9가지</h2>
+    <p class="sub">카카오 움직이는 이모티콘의 관행(짧은 루프, 동작 1개 + 강조 이펙트 1개, 시작과 끝 포즈 같게)을 CSS 키프레임으로 옮긴 것입니다. Peekaboo 상태와의 매핑을 함께 적었습니다.</p>
+    <div class="rules">
+      <div class="rule"><b>통통</b>0.9초 루프. 착지 때 납작, 정점에서 길쭉. 대기 상태 기본값.</div>
+      <div class="rule"><b>덜덜</b>0.14초 좌우 2px. 양옆 떨림선. 충전 중(5초 유지) 상태.</div>
+      <div class="rule"><b>도리도리</b>±10도 회전 + 좌우 이동. 거절·싫어 반응.</div>
+      <div class="rule"><b>끄덕</b>바닥 기준 9도 숙임. 인사·수긍.</div>
+      <div class="rule"><b>짠!</b>0에서 1.22배로 튀어나온 뒤 되튐 + 터짐선 + 글자. 등장 연출 그대로.</div>
+      <div class="rule"><b>빼꼼</b>턱 뒤에서 올라와 머물다 움찔 숨음. 물체 뒤 등장 자세.</div>
+      <div class="rule"><b>두리번</b>좌우 9% 이동 + 4도 기울임, 멈춤 구간 있음. 대기 중 심심함.</div>
+      <div class="rule"><b>눈물</b>0.5초 흐느낌 + 눈물 두 방울 낙하. 미수집 탭·듀아아.</div>
+      <div class="rule"><b>반짝</b>느린 부유 + 별 3개 점멸. 수집 완료·도감.</div>
+    </div>
+  </section>
+
+  <footer class="notes">
+    <section>
+      <h3>Peekaboo에 넣을 때</h3>
+      <ul>
+        <li>충전(5초): 덜덜. 짠! 등장: 짠!. 대기: 공식 애니메이션 또는 통통. 탭: 찌그러짐. 수집: 눈물 → 반짝.</li>
+        <li>앱은 2D 캔버스라 CSS 대신 <code>drawImage</code>에 같은 변환(translate·scale·rotate)을 적용하면 됩니다. 공식 APNG는 캔버스에 그리면 첫 프레임만 나오므로, 캔버스 위에 <code>&lt;img&gt;</code>를 겹치거나 WebP 프레임을 직접 넘겨야 합니다.</li>
+        <li>마스크 오클루전은 캐릭터 요소 위에 비디오를 덮는 방식이라 <code>&lt;img&gt;</code>를 쓰면 마스크 캔버스를 그 위 레이어로 올려야 합니다.</li>
+      </ul>
+    </section>
+    <section>
+      <h3>파일과 라이선스</h3>
+      <ul>
+        <li>공식 애니메이션 원본: <a href="https://github.com/microsoft/fluentui-emoji-animated">microsoft/fluentui-emoji-animated</a> (MIT, 256px APNG, Git LFS 약 5GB). 여기서는 <a href="https://github.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis">Tarikul-Islam-Anik 미러</a>에서 받아 128px·절반 프레임 애니 WebP로 변환했습니다(45종 5.7MB).</li>
+        <li>정지 3D PNG: <a href="https://github.com/microsoft/fluentui-emoji">microsoft/fluentui-emoji</a> (MIT).</li>
+        <li>MIT 조건은 저작권 고지 포함뿐입니다. 저장소에 LICENSE 사본을 함께 두었습니다.</li>
+      </ul>
+    </section>
+    <section>
+      <h3>한계</h3>
+      <ul>
+        <li>녹는 얼굴은 공식 애니메이션이 없습니다(14종 정지). 공식 애니메이션 프레임 수와 길이는 캡션에 적었습니다.</li>
+        <li>눈물·터짐선 같은 이펙트 위치는 칸 기준 고정이라 이모지마다 눈 위치와 조금 어긋납니다. 채택되면 캐릭터별로 좌표를 맞춥니다.</li>
+        <li>공식 애니메이션은 멈출 수 없습니다. 시스템의 "동작 줄이기" 설정에서는 우리 모션만 꺼집니다.</li>
+      </ul>
+    </section>
+  </footer>
+</div>
+
+<script>
+(function () {
+  const tiles = [...document.querySelectorAll('.tile')];
+  let mode = 'mix';
+  const MOTIONS = ['bounce', 'shiver', 'shake', 'nod', 'pop', 'peek', 'look', 'tears', 'sparkle'];
+  function apply() {
+    for (const t of tiles) {
+      t.classList.remove(...MOTIONS.map((m) => 'm-' + m));
+      const m = mode === 'mix' ? t.dataset.mix : mode;
+      if (m && m !== 'none') t.classList.add('m-' + m);
+    }
+  }
+  apply();
+  document.querySelectorAll('[data-motion]').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('[data-motion]').forEach((x) => x.setAttribute('aria-checked', x === b ? 'true' : 'false'));
+    mode = b.dataset.motion; apply();
+  }));
+  for (const t of tiles) {
+    t.tabIndex = 0;
+    const fig = t.querySelector('.fig');
+    const squash = () => { fig.classList.remove('squash'); void fig.offsetWidth; fig.classList.add('squash'); };
+    fig.addEventListener('animationend', (e) => { if (e.animationName === 'squash') fig.classList.remove('squash'); });
+    t.addEventListener('pointerdown', squash);
+    t.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); squash(); } });
+  }
+})();
+</script>
+
+</body>
+</html>

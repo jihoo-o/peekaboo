@@ -67,6 +67,8 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 
 `docs/preview/asset-lab.html` is a catalog of ready-made character assets by license: Microsoft Fluent Emoji 3D (MIT; 59 candidate PNGs are vendored under `docs/preview/fluent3d/` with their LICENSE), CC0 GLB packs (Gobkit, KayKit, Quaternius, Kenney, RobotExpressive), Apache/OFL and CC-BY emoji sets, and conditional ones (Tossface, OpenMoji, Mixamo), with how each would plug into the app.
 
+`docs/preview/motion-lab.html` animates those 59 candidates like messenger emoticons: 45 use Microsoft's official Fluent Emoji animations (MIT, re-encoded to 128px animated WebP under `docs/preview/fluent3d-anim/`), the rest get CSS motion presets (bounce, shiver, shake, nod, pop, peek, look, tears, sparkle) that map to the app's states; tap a tile to squash it.
+
 ## Not yet verified on a phone
 
 - Detection / segmentation Hz, heat, and mask flicker on real Android Chrome (if flicker is bad, set `MASK_EMA` in `app.js` to 0.7).
