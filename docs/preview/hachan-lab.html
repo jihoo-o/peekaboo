@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+</head>
+<body style="margin:0">
+<title>하찮이 피규어 랩</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --bg: #F3F0EA; --card: #FFFFFF; --view: #FBF9F4; --ink: #2B2620; --ink-2: #6F675C; --line: #E3DDD2;
+    --accent: #F5C842; --accent-ink: #4A3700; --ok: #2E8B57; --chip-ring: #2B2620; --focus: #2F6FE4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1A1815; --card: #24211D; --view: #2C2823; --ink: #F3EFE8; --ink-2: #ABA396; --line: #3A352E;
+      --accent: #F5C842; --accent-ink: #2A1F00; --ok: #5FCB8A; --chip-ring: #F3EFE8; --focus: #7FA6F5;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1A1815; --card: #24211D; --view: #2C2823; --ink: #F3EFE8; --ink-2: #ABA396; --line: #3A352E;
+    --accent: #F5C842; --accent-ink: #2A1F00; --ok: #5FCB8A; --chip-ring: #F3EFE8; --focus: #7FA6F5;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif; font-size: 15px; line-height: 1.6; padding-inline: 16px; padding-block: 20px 40px; }
+  .wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  h1, h2, h3, .tag, .summary strong, .rule b { font-family: "Jua", "Noto Sans KR", system-ui, sans-serif; font-weight: 400; }
+  h1 { font-size: clamp(26px, 3.6vw, 36px); line-height: 1.15; margin: 0; text-wrap: balance; }
+  h1 em { font-style: normal; background: var(--accent); color: var(--accent-ink); padding: 0 8px; border-radius: 10px; }
+  .top p { margin: 6px 0 0; color: var(--ink-2); max-width: 64ch; }
+  .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 10px; }
+  .rule { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; font-size: 13px; color: var(--ink-2); }
+  .rule b { display: block; font-size: 16px; color: var(--ink); margin-bottom: 2px; }
+  .rule span { display: block; margin-top: 4px; font-size: 12px; letter-spacing: .02em; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 14px 18px; display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center; }
+  .seg { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .seg > span, .chips > span { font-size: 14px; color: var(--ink-2); margin-right: 4px; }
+  .seg button { border: 1px solid var(--line); background: var(--view); color: var(--ink); border-radius: 999px; padding: 5px 14px; font: 14px "Noto Sans KR", system-ui, sans-serif; cursor: pointer; }
+  .seg button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .chips { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .chip { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; box-shadow: inset 0 0 0 2px rgba(0,0,0,.08); }
+  .chip[aria-checked="true"] { border-color: var(--chip-ring); }
+  .chip:focus-visible, .seg button:focus-visible, .view:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 12px 12px 16px; display: flex; flex-direction: column; gap: 12px; position: relative; }
+  .view { position: relative; aspect-ratio: 1 / 1; max-width: 100%; border-radius: 14px; background: radial-gradient(120% 90% at 50% 25%, var(--view) 0%, var(--bg) 100%); overflow: hidden; touch-action: none; cursor: grab; }
+  .view:active { cursor: grabbing; }
+  .view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .view .poke { position: absolute; right: 12px; bottom: 10px; font-size: 12px; color: var(--ink-2); pointer-events: none; }
+  .tag { position: absolute; top: 20px; left: 20px; background: var(--accent); color: var(--accent-ink); font-size: 13px; padding: 2px 10px; border-radius: 999px; z-index: 1; }
+  .meta { display: flex; flex-direction: column; gap: 6px; padding-inline: 4px; }
+  .eyebrow { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+  h2 { font-size: 22px; margin: 0; line-height: 1.2; }
+  .meta p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .spec { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 6px 0 0; font-size: 13px; border-top: 1px dashed var(--line); padding-top: 8px; }
+  .spec dt { color: var(--ink-2); } .spec dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .summary { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 18px; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; }
+  .summary strong { font-size: 18px; } .summary span { color: var(--ink-2); font-size: 14px; }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .notes section { border-top: 3px solid var(--accent); padding-top: 10px; }
+  .notes h3 { font-size: 15px; margin: 0 0 6px; }
+  .notes p, .notes li { color: var(--ink-2); font-size: 14px; margin: 0; }
+  .notes ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>리서치로 다시 만든 <em>하찮고 귀여운</em> 피규어 3종</h1>
+    <p>2026년에 뜨는 캐릭터(도로롱과 춘식이, 망그러진 곰, 먼작귀, 오파누, 라부부, 스미스키)에서 공통 문법 6개를 뽑아 그대로 적용했습니다. 무광 소프트비닐 피규어처럼 렌더했고, 표정과 몸 색을 바꿔가며 볼 수 있습니다. 탭하면 찌그러집니다.</p>
+  </header>
+
+  <section class="rules" aria-label="리서치에서 뽑은 문법">
+    <div class="rule"><b>머리가 곧 몸</b>목 없음, 팔다리는 돌기. 2등신 이하.<span>먼작귀 · 춘식이 · 라부부</span></div>
+    <div class="rule"><b>작은 점 눈, 눈썹이 감정</b>눈은 얼굴 중간 아래에 작게. 감정은 눈썹·눈물·땀으로.<span>망그러진 곰(눈썹) · 오파누(눈물)</span></div>
+    <div class="rule"><b>일부러 덜 완벽하게</b>한쪽 눈 작게, 한 팔 길게, 쭈굴한 몸, 살짝 기울기.<span>망그러진 곰 · 찌그렁 오리</span></div>
+    <div class="rule"><b>저채도 파스텔, 무광</b>아이보리·연한 파스텔. 소프트비닐 매트 질감.<span>먼작귀 소프비 · 스미스키 · 소니엔젤</span></div>
+    <div class="rule"><b>자세가 하찮음을 만든다</b>앉기, 축 처짐, 빼꼼, 매달리기.<span>스미스키(빼꼼) · 소니엔젤 히퍼스(매달리기)</span></div>
+    <div class="rule"><b>무해한 감정</b>울먹, 멍, 덜덜. 공격성 0.<span>2026 캐릭터 트렌드 공통 키워드 "공감·불완전함"</span></div>
+  </section>
+
+  <section class="panel" aria-label="조절">
+    <div class="seg" role="radiogroup" aria-label="표정">
+      <span>표정</span>
+      <button id="ex-teary" role="radio" aria-checked="true" data-expr="teary">울먹</button>
+      <button id="ex-blank" role="radio" aria-checked="false" data-expr="blank">멍</button>
+      <button id="ex-tired" role="radio" aria-checked="false" data-expr="tired">쭈굴</button>
+    </div>
+    <div class="chips" role="radiogroup" aria-label="몸 색">
+      <span>몸 색</span>
+      <button class="chip" id="chip-orig" role="radio" aria-checked="true" aria-label="원본 노랑" data-color="#F7D96C" style="background:#F7D96C"></button>
+      <button class="chip" id="chip-ivory" role="radio" aria-checked="false" aria-label="아이보리" data-color="#F1E6C8" style="background:#F1E6C8"></button>
+      <button class="chip" id="chip-pink" role="radio" aria-checked="false" aria-label="분홍" data-color="#f48fb1" style="background:#f48fb1"></button>
+      <button class="chip" id="chip-green" role="radio" aria-checked="false" aria-label="초록" data-color="#81c784" style="background:#81c784"></button>
+      <button class="chip" id="chip-blue" role="radio" aria-checked="false" aria-label="파랑" data-color="#64b5f6" style="background:#64b5f6"></button>
+      <button class="chip" id="chip-orange" role="radio" aria-checked="false" aria-label="주황" data-color="#ffb74d" style="background:#ffb74d"></button>
+      <button class="chip" id="chip-purple" role="radio" aria-checked="false" aria-label="보라" data-color="#b39ddb" style="background:#b39ddb"></button>
+    </div>
+  </section>
+
+  <main class="grid" id="grid">
+    <article class="card" data-kind="peek">
+      <span class="tag">Peekaboo 자세</span>
+      <div class="view" tabindex="0" aria-label="빼꼼이 3D 프리뷰"><canvas></canvas><span class="poke">콕 찔러보기</span></div>
+      <div class="meta">
+        <div class="eyebrow">스미스키 · 소니엔젤 히퍼스</div>
+        <h2>빼꼼이</h2>
+        <p>턱 뒤에 숨어 두 손으로 매달린 채 올려다봄. 가끔 움찔하며 숨는다. 물체 뒤에서 나오는 앱 연출과 같은 자세.</p>
+        <dl class="spec"><dt>삼각형</dt><dd data-tris>계산 중</dd><dt>움직임</dt><dd>빼꼼 → 움찔 숨기 → 다시 빼꼼</dd></dl>
+      </div>
+    </article>
+    <article class="card" data-kind="sit">
+      <div class="view" tabindex="0" aria-label="앉은 울먹이 3D 프리뷰"><canvas></canvas><span class="poke">콕 찔러보기</span></div>
+      <div class="meta">
+        <div class="eyebrow">먼작귀 · 오파누</div>
+        <h2>앉은 울먹이</h2>
+        <p>다리를 앞으로 뻗고 앉아 팔은 옆에 축. 울먹 표정이면 미세하게 덜덜 떤다.</p>
+        <dl class="spec"><dt>삼각형</dt><dd data-tris>계산 중</dd><dt>움직임</dt><dd>덜덜 떨림 · 깜빡임</dd></dl>
+      </div>
+    </article>
+    <article class="card" data-kind="slump">
+      <div class="view" tabindex="0" aria-label="쭈굴 곰 3D 프리뷰"><canvas></canvas><span class="poke">콕 찔러보기</span></div>
+      <div class="meta">
+        <div class="eyebrow">망그러진 곰</div>
+        <h2>쭈굴이</h2>
+        <p>바람 빠진 몸, 한쪽 눈 작고 한 팔은 바닥까지 길다. 아이보리로 톤을 빼면 가장 망곰스럽다.</p>
+        <dl class="spec"><dt>삼각형</dt><dd data-tris>계산 중</dd><dt>움직임</dt><dd>느린 흔들림 · 한숨 쉬듯 가라앉음</dd></dl>
+      </div>
+    </article>
+  </main>
+
+  <div class="summary" aria-live="polite"><span>지금 조합</span><strong id="summary">표정 울먹 · 원본 노랑</strong><span>마음에 드는 카드 이름과 이 문구를 알려주면 그대로 Peekaboo에 넣습니다.</span></div>
+
+  <footer class="notes">
+    <section>
+      <h3>지난 버전에서 바꾼 것</h3>
+      <ul>
+        <li>큰 덩어리에 이목구비만 줄이던 방식을 버리고, 자세와 표정으로 하찮음을 만든다.</li>
+        <li>광택 젤리 대신 무광 소프트비닐. 저채도 파스텔로 톤을 뺀다.</li>
+        <li>좌우 비대칭, 눈썹, 눈물, 땀방울 같은 "감정 파츠"를 추가했다.</li>
+        <li>받침(갈색 태그)을 없애고 다리 돌기를 넣어 앉힌다.</li>
+      </ul>
+    </section>
+    <section>
+      <h3>Peekaboo에 넣을 때</h3>
+      <ul>
+        <li>등장: 빼꼼이 자세 그대로, 물체 위 가장자리에 손을 걸친다.</li>
+        <li>충전 중(5초): 움찔 숨기 반복. 탭: 찌그러졌다 출렁. 수집: 별사탕 들고 앉은 자세.</li>
+        <li>몸 색 6종은 그대로 별사탕 색과 짝지어 도감에 쓴다.</li>
+      </ul>
+    </section>
+    <section>
+      <h3>저작권 메모</h3>
+      <p>노란 고양이 귀와 볼은 춘식이(카카오) 모티프입니다. 여기서 만든 자세·표정·비율은 새로 설계한 것이라 개인 프로젝트엔 문제없고, 스토어 배포 시엔 귀 모양과 색을 더 바꾸면 안전합니다.</p>
+    </section>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.158.0/three.min.js"></script>
+<script>
+(function () {
+  if (!window.THREE) { document.querySelectorAll('[data-tris]').forEach((el) => { el.textContent = 'three.js 로드 실패'; }); return; }
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = (id) => document.getElementById(id);
+  const state = { expr: 'teary', bodyHex: '#F7D96C', bodyName: '원본 노랑' };
+  const clamp01 = (v) => Math.min(1, Math.max(0, v));
+  const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+
+  function tint(hex, dl, ds) {
+    const c = new THREE.Color(hex); const h = { h: 0, s: 0, l: 0 }; c.getHSL(h);
+    return c.setHSL(h.h, clamp01(h.s + (ds || 0)), clamp01(h.l + (dl || 0)));
+  }
+  // 무광 소프트비닐. 파스텔로 톤을 뺀다.
+  const vinyl = (col, o) => new THREE.MeshStandardMaterial({ color: col, roughness: 0.7, metalness: 0, ...(o || {}) });
+  const palette = (kind) => ({
+    body: tint(state.bodyHex, kind === 'slump' ? 0.08 : 0.04, kind === 'slump' ? -0.2 : -0.08),
+    muzzle: new THREE.Color('#FFFDF8'),
+    dark: new THREE.Color('#3A2E28'),
+    cheek: tint('#F5A2A8', 0.02, -0.05),
+    tear: new THREE.Color('#A9D6F5'),
+  });
+
+  // ---- 지오메트리 헬퍼 (변환을 구움) ----
+  function sphere(p, r, s, seg) {
+    const g = new THREE.SphereGeometry(r, seg || 36, Math.round((seg || 36) * 0.75));
+    if (s) g.scale(s[0], s[1], s[2]);
+    g.translate(p[0], p[1], p[2]); return g;
+  }
+  function capsule(a, b, r, seg) {
+    const A = V3(a), B = V3(b), dir = B.clone().sub(A), len = dir.length(); dir.normalize();
+    const g = new THREE.CapsuleGeometry(r, len, 4, seg || 24);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir));
+    const m = A.add(B).multiplyScalar(0.5); g.translate(m.x, m.y, m.z); return g;
+  }
+  function bar(p, w, h, d, rotZ) { const g = new THREE.BoxGeometry(w, h, d); g.rotateZ(rotZ || 0); g.translate(p[0], p[1], p[2]); return g; }
+  function arc(p, r, tube, flip) { const g = new THREE.TorusGeometry(r, tube, 6, 14, Math.PI); if (flip) g.rotateZ(Math.PI); g.translate(p[0], p[1], p[2]); return g; }
+  function lumpy(g, amp, freq) {
+    const p = g.attributes.position, n = g.attributes.normal;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const d = amp * (Math.sin(x * freq + 1.3) * Math.sin(y * freq * 1.2 + 0.7) * Math.sin(z * freq * 0.8 + 2.1) + 0.4 * Math.sin(x * freq * 2.1 + 0.4) * Math.cos(z * freq * 1.9));
+      p.setXYZ(i, x + n.getX(i) * d, y + n.getY(i) * d, z + n.getZ(i) * d);
+    }
+    p.needsUpdate = true; g.computeVertexNormals();
+  }
+
+  // ---- 피규어: 자세(kind) × 표정(expr) ----
+  function buildFigure(kind, expr) {
+    const C = palette(kind), G = new THREE.Group(), eyes = [];
+    const add = (geom, mat) => { const m = new THREE.Mesh(geom, mat); G.add(m); return m; };
+    // 몸 = 머리. 자세별 타원체
+    const B = kind === 'slump' ? { c: [0, -0.16, 0], r: 0.95, s: [1.1, 0.82, 0.96] } : { c: [0, -0.05, 0], r: 0.92, s: [1, 0.98, 0.9] };
+    const bodyG = sphere(B.c, B.r, B.s, 56);
+    if (kind === 'slump') { lumpy(bodyG, 0.035, 2.6); bodyG.rotateZ(0.06); } else lumpy(bodyG, 0.006, 9);
+    add(bodyG, vinyl(C.body));
+    const sx = B.r * B.s[0], sy = B.r * B.s[1], sz = B.r * B.s[2];
+    const surf = (x, y) => B.c[2] + sz * Math.sqrt(Math.max(0.03, 1 - (x / sx) ** 2 - ((y - B.c[1]) / sy) ** 2));
+    const top = (x) => B.c[1] + sy * Math.sqrt(Math.max(0.03, 1 - (x / sx) ** 2));
+    // 귀 돌기 (모티프)
+    for (const s of [-1, 1]) add(sphere([s * 0.46, top(0.46) - 0.02 + (kind === 'slump' && s > 0 ? -0.05 : 0), -0.05], 0.15, [1, 0.9, 0.8]), vinyl(C.body));
+    // 팔·다리
+    if (kind === 'peek') {
+      for (const s of [-1, 1]) {
+        add(capsule([s * 0.62, -0.28, 0.5], [s * 0.46, -0.5, 1.28], 0.12), vinyl(C.body));
+        add(sphere([s * 0.46, -0.47, 1.36], 0.16, [1, 0.8, 0.9]), vinyl(C.body));
+      }
+    } else {
+      for (const s of [-1, 1]) {
+        const long = kind === 'slump' && s < 0; // 망곰: 한 팔만 길다
+        const a = [s * 0.8 * B.s[0], -0.12 + B.c[1] + 0.05, 0.22], b = long ? [s * 1.06, -0.98, 0.42] : [s * 0.93 * B.s[0], -0.58, 0.4];
+        add(capsule(a, b, 0.12), vinyl(C.body));
+        add(sphere([b[0] + s * 0.02, b[1] - 0.03, b[2] + 0.02], 0.14, [1, 0.9, 0.9]), vinyl(C.body));
+        add(sphere([s * 0.36, -0.86, 0.52], 0.3, [0.85, 0.42, 1.15]), vinyl(C.body)); // 다리 돌기
+      }
+    }
+    // 얼굴: 주둥이(모티프), 볼, 코
+    const mzY = -0.06; add(sphere([0, mzY, surf(0, mzY) - 0.06], 0.2, [1, 0.6, 0.42]), vinyl(C.muzzle, { roughness: 0.6 }));
+    add(sphere([0, mzY + 0.05, surf(0, mzY + 0.05) + 0.025], 0.03, [1.2, 0.8, 0.6]), vinyl(C.dark, { roughness: 0.4 }));
+    for (const s of [-1, 1]) add(sphere([s * 0.5, -0.14, surf(0.5, -0.14) - 0.03], 0.17, [1, 0.72, 0.3]), vinyl(C.cheek));
+    // 눈: 점 / 감은 선. 망곰은 오른눈이 작다
+    const ey = 0.1, ex = 0.29;
+    for (const s of [-1, 1]) {
+      const small = kind === 'slump' && s > 0;
+      let g;
+      if (expr === 'tired') g = bar([s * ex, ey, surf(ex, ey) + 0.01], small ? 0.08 : 0.11, 0.024, 0.03, s * -0.12);
+      else g = sphere([s * ex, ey + (small ? 0.03 : 0), surf(ex, ey) + 0.01], small ? 0.035 : 0.05, [1, 1.15, 0.5], 20);
+      const m = add(g, vinyl(C.dark, { roughness: 0.35 }));
+      if (expr !== 'tired') { g.computeBoundingBox(); const c = g.boundingBox.getCenter(new THREE.Vector3()); g.translate(-c.x, -c.y, -c.z); m.position.copy(c); eyes.push(m); }
+    }
+    // 눈썹: 울먹=안쪽이 올라감(ㅠ), 쭈굴=일자, 멍=없음
+    if (expr !== 'blank') for (const s of [-1, 1]) add(bar([s * 0.3, ey + 0.17, surf(0.3, ey + 0.17) + 0.005], 0.13, 0.022, 0.03, expr === 'teary' ? -s * 0.45 : s * -0.05), vinyl(C.dark, { roughness: 0.4 })); // 울먹: 안쪽 끝이 올라간 ㅠ
+    // 입: 울먹=작은 ∩(뒤집힌 미소), 멍=ω, 쭈굴=일자
+    const my = mzY - 0.07;
+    if (expr === 'teary') add(arc([0, my - 0.02, surf(0, my) + 0.02], 0.04, 0.011, false), vinyl(C.dark));
+    else if (expr === 'blank') for (const s of [-1, 1]) add(arc([s * 0.032, my, surf(0, my) + 0.02], 0.03, 0.01, true), vinyl(C.dark));
+    else add(bar([0, my, surf(0, my) + 0.02], 0.08, 0.02, 0.03), vinyl(C.dark));
+    // 감정 파츠: 눈물(울먹), 땀(쭈굴·울먹)
+    if (expr === 'teary') add(sphere([-ex - 0.02, ey - 0.1, surf(ex, ey - 0.1) + 0.005], 0.032, [0.8, 1.5, 0.5], 16), vinyl(C.tear, { roughness: 0.2, transparent: true, opacity: 0.9 }));
+    if (expr !== 'blank') add(sphere([0.66, 0.5, surf(0.66, 0.5) - 0.01], 0.045, [0.7, 1.3, 0.6], 16), vinyl(C.tear, { roughness: 0.2, transparent: true, opacity: 0.9 }));
+    G.userData.eyes = eyes;
+    return G;
+  }
+  function triangles(root) { let n = 0; root.traverse((o) => { if (o.isMesh) { const g = o.geometry; n += g.index ? g.index.count / 3 : g.attributes.position.count / 3; } }); return Math.round(n); }
+  function blob(size, y) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+    const c = cv.getContext('2d'), g = c.createRadialGradient(64, 64, 6, 64, 64, 64);
+    g.addColorStop(0, 'rgba(40,30,20,.32)'); g.addColorStop(1, 'rgba(40,30,20,0)');
+    c.fillStyle = g; c.fillRect(0, 0, 128, 128);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2; m.position.y = y; return m;
+  }
+  function lights(s) {
+    s.add(new THREE.HemisphereLight(0xfff8ee, 0xd9d0c4, 1.15));
+    const k = new THREE.DirectionalLight(0xffffff, 1.7); k.position.set(2, 4, 3); s.add(k);
+    const f = new THREE.DirectionalLight(0xdfe8ff, 0.5); f.position.set(-3, 1, 3); s.add(f);
+    const rim = new THREE.DirectionalLight(0xffe2c4, 0.9); rim.position.set(-2, 2, -3); s.add(rim);
+  }
+
+  // ---- 카드 ----
+  const cards = [];
+  document.querySelectorAll('.card').forEach((card) => {
+    const kind = card.dataset.kind, view = card.querySelector('.view'), canvas = card.querySelector('canvas');
+    let renderer;
+    try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); }
+    catch (e) { card.querySelector('[data-tris]').textContent = 'WebGL 사용 불가'; return; }
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 50);
+    camera.position.set(0, 0.55, 6.9); camera.lookAt(0, -0.2, 0);
+    lights(scene);
+    if (kind === 'peek') {
+      // 턱: 물체 가장자리. 피규어와 별도라 찌그러져도 같이 안 눌린다
+      const ledge = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.5, 1.1), vinyl(new THREE.Color('#D9D2E9'), { roughness: 0.85 }));
+      ledge.position.set(0, -0.75, 0.95); scene.add(ledge);
+      scene.add(blob(3.6, -0.99));
+    } else scene.add(blob(3.0, -1.0));
+    const c = { kind, card, view, renderer, scene, camera, fig: null, rotY: -0.22, rotX: 0, dragging: false, moved: 0, lastX: 0, lastY: 0, sy: 1, vy: 0, tilt: 0, vt: 0, blinkAt: 2 + Math.random() * 2, duckAt: 3 + Math.random() * 3, duck: 0 };
+    const resize = () => { const w = view.clientWidth, h = view.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
+    new ResizeObserver(resize).observe(view); resize();
+    view.addEventListener('pointerdown', (e) => { c.dragging = true; c.moved = 0; c.lastX = e.clientX; c.lastY = e.clientY; view.setPointerCapture(e.pointerId); });
+    view.addEventListener('pointermove', (e) => {
+      if (!c.dragging) return;
+      const dx = e.clientX - c.lastX, dy = e.clientY - c.lastY; c.lastX = e.clientX; c.lastY = e.clientY; c.moved += Math.abs(dx) + Math.abs(dy);
+      c.rotY += dx * 0.012; c.rotX = Math.max(-0.4, Math.min(0.4, c.rotX + dy * 0.006));
+    });
+    const up = (e) => { if (c.dragging && c.moved < 6) poke(c, e); c.dragging = false; };
+    view.addEventListener('pointerup', up); view.addEventListener('pointercancel', () => { c.dragging = false; });
+    view.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') c.rotY -= 0.3; if (e.key === 'ArrowRight') c.rotY += 0.3; if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); poke(c); } });
+    cards.push(c);
+  });
+  function poke(c, e) {
+    c.vy -= 3.2;
+    let side = Math.random() < 0.5 ? -1 : 1;
+    if (e) { const r = c.view.getBoundingClientRect(); side = (e.clientX - r.left) / r.width < 0.5 ? 1 : -1; }
+    c.vt += side * 1.6;
+    if (c.kind === 'peek') c.duckAt = performance.now() / 1000; // 찌르면 바로 숨는다
+  }
+  function rebuild() {
+    for (const c of cards) {
+      if (c.fig) { c.scene.remove(c.fig); c.fig.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } }); }
+      c.fig = buildFigure(c.kind, state.expr); c.scene.add(c.fig);
+      c.card.querySelector('[data-tris]').textContent = triangles(c.fig).toLocaleString('ko-KR') + '개';
+    }
+    const names = { teary: '울먹', blank: '멍', tired: '쭈굴' };
+    $('summary').textContent = `표정 ${names[state.expr]} · ${state.bodyName}`;
+  }
+  rebuild();
+  document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-checked', x === b ? 'true' : 'false'));
+    state.expr = b.dataset.expr; rebuild();
+  }));
+  document.querySelectorAll('.chip').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach((x) => x.setAttribute('aria-checked', x === b ? 'true' : 'false'));
+    state.bodyHex = b.dataset.color; state.bodyName = b.getAttribute('aria-label'); rebuild();
+  }));
+
+  const smooth = (t) => t * t * (3 - 2 * t);
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; const t = now / 1000;
+    for (const c of cards) {
+      if (!c.fig) continue;
+      // 스프링(찌그러짐)
+      c.vy += (-90 * (c.sy - 1) - 7 * c.vy) * dt; c.sy += c.vy * dt; c.sy = Math.max(0.4, c.sy);
+      c.vt += (-90 * c.tilt - 7 * c.vt) * dt; c.tilt += c.vt * dt;
+      const sxz = 1 / Math.sqrt(Math.max(0.3, c.sy));
+      let x = 0, y = -1.0 + 1.0 * c.sy, rz = c.tilt * 0.3, ry = c.dragging || reduced ? c.rotY : c.rotY + 0.22 * Math.sin(t * 0.5);
+      if (!reduced) {
+        if (c.kind === 'sit' && state.expr === 'teary') x += 0.006 * Math.sin(t * 55); // 덜덜
+        if (c.kind === 'sit') y += 0.01 * Math.sin(t * 2.2);
+        if (c.kind === 'slump') { rz += 0.025 * Math.sin(t * 0.9); y += -0.02 * (0.5 + 0.5 * Math.sin(t * 0.7)); } // 한숨
+        if (c.kind === 'peek') { // 빼꼼 → 움찔 숨기 → 다시 빼꼼
+          const dt2 = t - c.duckAt;
+          if (dt2 >= 0 && dt2 < 1.1) c.duck = dt2 < 0.15 ? smooth(dt2 / 0.15) : dt2 < 0.7 ? 1 : 1 - smooth((dt2 - 0.7) / 0.4);
+          else if (dt2 >= 1.1) { c.duck = 0; c.duckAt = t + 2.5 + Math.random() * 3; }
+          y += -0.55 * c.duck + 0.015 * Math.sin(t * 2.6);
+        }
+      }
+      c.fig.scale.set(sxz, c.sy, sxz); c.fig.position.set(x, y, 0); c.fig.rotation.set(c.rotX, ry, rz);
+      if (!reduced && t > c.blinkAt) { const open = t > c.blinkAt + 0.12; for (const e of c.fig.userData.eyes) e.scale.y = open ? 1 : 0.15; if (open) c.blinkAt = t + 2.5 + Math.random() * 3; }
+      c.renderer.render(c.scene, c.camera);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>

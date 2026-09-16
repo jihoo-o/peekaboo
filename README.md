@@ -59,6 +59,8 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 
 `docs/preview/squishy-lab.html` narrows that to the clay and jelly line, pushed toward the squishy-toy look: three materials (mochi, pudding jelly, clay dough) driven by two sliders, *derpiness* (flatter body, small far-apart eyes, stub arms) and *squishiness* (poke squash depth and spring damping). Tap a model to poke it.
 
+`docs/preview/hachan-lab.html` is the current direction: three figures (peeking, sitting-teary, slumped) built from six design rules taken from 2026 character trends (head-as-body, dot eyes with eyebrows carrying emotion, deliberate asymmetry, low-saturation matte vinyl, posture, harmless emotions), with three expressions and seven body colors. The peeking figure is the pose the app will use.
+
 ## Not yet verified on a phone
 
 - Detection / segmentation Hz, heat, and mask flicker on real Android Chrome (if flicker is bad, set `MASK_EMA` in `app.js` to 0.7).
