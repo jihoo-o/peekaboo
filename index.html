@@ -16,8 +16,8 @@
       white-space: pre; border-radius: 6px; pointer-events: none; z-index: 3;
     }
     #msg {
-      position: absolute; left: 0; right: 0; top: 40%; text-align: center; color: #fff;
-      font-size: 18px; text-shadow: 0 1px 4px #000; padding: 0 24px; pointer-events: none; z-index: 3;
+      position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 116px); text-align: center; color: #fff;
+      font-size: 17px; text-shadow: 0 1px 4px #000; padding: 0 24px; pointer-events: none; z-index: 3; /* S16: 캐릭터를 가리지 않게 셔터 위로 */
     }
     #msg:empty { display: none; }
     #start {

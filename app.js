@@ -9,6 +9,7 @@
 // S10: 큰 물체는 옆에서 등장(화면 위 여유 없을 때) + 한 번 맞춘 물체는 이후 즉시 등장
 // S11: 짠! 대신 스을쩍 — 물체에 완전히 가려진 위치에서 뒤뚱거리며 걸어 나오고, 중간에 한 번 움찔 물러난다
 // S12: 패럴랙스 — 평소엔 반쯤 숨어 있고, 폰을 옆·위로 움직이면(물체가 화면에서 치우치면) 뒤에 숨은 캐릭터가 더 드러난다
+// S16: 등장 후엔 캐릭터에 집중 — 발광은 사그라들고, 캐릭터 주변만 밝은 스포트라이트(나머지 어둡게), 캐릭터는 불투명, 검출 박스는 ?debug=1일 때만
 // S15: 타깃 못 잡는 문제 — 스캔은 딱 5초, 그동안 본 물체 중에서만 선정. 자이로로 물체 방향을 기억해 화면 밖이면 상하좌우 엣지 발광으로 카메라를 유도
 // S14: 못 찾는 문제 대응 — 스캔에서 충분히(4회↑) 본 물체만 후보, 본 횟수 가중 선택, 후보 목록·20초 뒤 라벨 힌트, 밝은 배경에서도 보이는 발광 링
 // S13: 먼작귀 도감 — 별사탕 6색 대신 캐릭터 15종. 물체 라벨마다 사는 종이 다르고, 희귀도·심야 시크릿·세트가 있다. 그림은 공식 에셋 슬롯(assets/skins/chiikawa/)이며 없으면 이름표 실루엣
@@ -502,11 +503,19 @@ function updateNear() {
   p.x += (tx - p.x) * PARALLAX_SMOOTH; p.y += (ty - p.y) * PARALLAX_SMOOTH;
 }
 // S8: 물체 뒤 발광. 캐릭터보다 먼저 그리고, 그 위에 마스크로 잘라낸 물체 픽셀이 덮여 "뒤에서 새어 나오는" 빛이 된다.
+// S16: 캐릭터가 나온 뒤(peek 이후)엔 0.6초에 걸쳐 15%로 사그라든다. 0=안 나옴, 1=완전히 나옴
+function appeared(t) {
+  const c = state.char;
+  if (c.state === 'hidden' || c.state === 'charging') return 0;
+  if (c.state === 'hide') return 1 - Math.min((t - c.since) / HIDE_MS, 1);
+  return Math.min((t - c.since) / 600, 1) || (c.state !== 'peek' ? 1 : 0);
+}
 function drawGlow(ctx, b, t) {
   const c = state.char;
   const charging = c.state === 'charging' ? (t - c.since) / HOLD_MS : c.state === 'hidden' ? 0 : 1;
   const pulse = 0.5 + 0.5 * Math.sin(t / (charging ? 180 + 420 * (1 - charging) : 700)); // 충전 중엔 점점 빠르게 깜빡
-  const strength = (0.25 + 0.75 * state.near) * (0.6 + 0.4 * pulse) * (0.7 + 0.3 * charging);
+  const focus = 1 - 0.85 * appeared(t); // S16
+  const strength = (0.25 + 0.75 * state.near) * (0.6 + 0.4 * pulse) * (0.7 + 0.3 * charging) * focus;
   const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
   const R = Math.max(b.w, b.h) * (0.7 + 0.5 * state.near + 0.2 * pulse);
   const g = ctx.createRadialGradient(cx, cy, R * 0.15, cx, cy, R);
@@ -516,6 +525,7 @@ function drawGlow(ctx, b, t) {
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g;
   ctx.fillRect(cx - R, cy - R, R * 2, R * 2); ctx.restore();
   // S14: 밝은 배경에서는 'lighter'가 흰색으로 묻히므로, 일반 합성으로 주황 테두리 링을 더 그린다(마스크 아래라 물체 가장자리로 새어 나온다)
+  if (b.w * b.h > canvas.width * canvas.height * 0.45) return; // S16: 화면을 거의 채우는 물체엔 링을 그리지 않는다(거대한 주황 띠가 됨)
   ctx.save();
   ctx.globalAlpha = 0.45 + 0.5 * strength;
   ctx.strokeStyle = '#ff9f1a'; ctx.lineWidth = Math.max(8, b.w * (0.07 + 0.07 * state.near));
@@ -524,6 +534,16 @@ function drawGlow(ctx, b, t) {
   ctx.beginPath(); ctx.ellipse(cx, cy, b.w * (0.66 + 0.05 * pulse), b.h * (0.66 + 0.05 * pulse), 0, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
 }
+// S16: 스포트라이트 — 캐릭터 중심의 방사형 구멍을 뺀 나머지를 어둡게. 오클루전(물체 픽셀)은 이 위에 다시 그려지므로 물체는 밝게 남는다
+function drawSpotlight(ctx, p, t) {
+  const k = appeared(t); if (!k) return;
+  const r = p.size / 2, cx = p.cx, cy = p.cy - r;
+  const inner = p.size * 1.1, outer = p.size * 2.6;
+  const g = ctx.createRadialGradient(cx, cy, inner, cx, cy, outer);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${0.55 * k})`);
+  ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
+}
+
 // ---- S3/S7: 캐릭터 ----
 const PEEK_MS = 2400, HIDE_MS = 300, WAVE_MS = 800, COLLECT_MS = 900; // S11: 2.4초에 걸쳐 스을쩍
 const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -666,7 +686,7 @@ function drawSkin(ctx, img, cx, cy, size, t, opts) {
   const w = size * 1.1, h = w * (img.naturalHeight / img.naturalWidth);
   const wobble = (opts.waving ? Math.sin(t / 60) * 0.08 : 0) + (opts.tilt ?? 0);
   ctx.save();
-  ctx.globalAlpha = opts.collected ? 1 : 0.86;
+  ctx.globalAlpha = 1; // S16: 미수집도 불투명(구분은 '!' 말풍선)
   ctx.translate(cx, cy); ctx.rotate(wobble); ctx.translate(-cx, -cy);
   ctx.drawImage(img, cx - w / 2, cy - h, w, h);
   drawBadges(ctx, cx, bodyCy, r, size, t, opts);
@@ -678,9 +698,9 @@ function drawPlaceholder(ctx, sp, cx, cy, size, t, opts) {
   const blink = (t % 3400) < 110;
   const wobble = (opts.waving ? Math.sin(t / 60) * 0.08 : 0) + (opts.tilt ?? 0);
   ctx.save();
-  ctx.globalAlpha = opts.collected ? 1 : 0.86;
+  ctx.globalAlpha = 1; // S16: 미수집도 불투명(구분은 '!' 말풍선)
   ctx.translate(cx, bodyCy); ctx.rotate(wobble); ctx.translate(-cx, -bodyCy);
-  ctx.fillStyle = sp.color; ctx.strokeStyle = '#3B322C'; ctx.lineWidth = Math.max(2, size * 0.035);
+  ctx.fillStyle = sp.color; ctx.strokeStyle = '#3B322C'; ctx.lineWidth = Math.max(3, size * 0.05); // S16: 윤곽 굵게
   ctx.beginPath(); ctx.ellipse(cx, bodyCy, r, r * 0.95, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   ctx.fillStyle = sp.tone; // 볼
   for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(cx + sx * r * 0.55, bodyCy + r * 0.12, r * 0.17, r * 0.11, 0, 0, Math.PI * 2); ctx.fill(); }
@@ -703,7 +723,7 @@ function drawSoot(ctx, cx, cy, size, t, opts = {}) {
   const blink = (t % 3400) < 110;
   const wobble = (opts.waving ? Math.sin(t / 60) * 0.08 : 0) + (opts.tilt ?? 0); // S11: 걷는 뒤뚱거림
   ctx.save();
-  ctx.globalAlpha = opts.collected ? 1 : 0.86; // 미수집은 살짝 옅게
+  ctx.globalAlpha = 1; // S16: 미수집도 불투명
   ctx.translate(cx, bodyCy); ctx.rotate(wobble); ctx.translate(-cx, -bodyCy);
   // 털
   ctx.strokeStyle = '#151515'; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(2, size * 0.045);
@@ -778,6 +798,8 @@ function drawCharging(ctx, p, t, k) {
   ctx.restore();
 }
 
+// S16: 패럴랙스·옆 배치로 캐릭터가 화면 밖으로 밀리지 않게 x를 화면 안으로 제한
+const clampX = (x, size) => Math.max(size * 0.65, Math.min(canvas.width - size * 0.65, x));
 // 캐릭터의 현재 화면 배치 (하단 중심 x, y, 폭, side). 락이 없으면 null.
 // S10: 위쪽 여유가 없으면(큰 물체·화면 상단) 여유가 더 많은 옆쪽에서 나온다. 크기는 화면 폭의 45%로 제한.
 function characterPlacement(t) {
@@ -808,12 +830,12 @@ function characterPlacement(t) {
     const hiddenY = Math.min(Math.max(b.y + b.h * 0.6, b.y + size * 1.2), b.y + b.h + size * 0.2);
     const shownY = b.y + b.h * 0.45;
     const anchorY = Math.max(hiddenY + (shownY - hiddenY) * c.progress + py, topMargin + size) + bob;
-    return { cx: b.x + b.w / 2 + px, cy: anchorY, size, side, box: b };
+    return { cx: clampX(b.x + b.w / 2 + px, size), cy: anchorY, size, side, box: b };
   }
   // 옆: 숨김 = 털까지 bbox 안쪽(가려짐), 등장 = 몸의 55%가 bbox 밖으로. 패럴랙스로 더 드러남
   const dir = side === 'right' ? 1 : -1;
   const edge = side === 'right' ? b.x + b.w : b.x;
-  const cx = edge + dir * (-size * 0.7 + size * 0.75 * c.progress) + px;
+  const cx = clampX(edge + dir * (-size * 0.7 + size * 0.75 * c.progress) + px, size);
   const cy = Math.min(Math.max(b.y + b.h * 0.55, topMargin + size), canvas.height - size * 0.3) + size / 2 + bob + py;
   return { cx, cy, size, side, box: b };
 }
@@ -829,6 +851,7 @@ function composite(t) {
   if (state.lock) state.lastLockAt = t; // S14
   if (p && state.phase === 'play') { drawGlow(ctx, p.box, t); refreshTargetOrient(t); state.edge = null; } // S8: 물체 뒤 발광 (캐릭터·오클루전보다 먼저). S15: 방향 갱신
   if (!p && state.phase === 'play') { const e = edgeHint(); if (e) { state.edge = e; drawEdgeHint(ctx, e, t); } } // S15: 화면 밖이면 엣지 발광
+  if (p && c.state !== 'hidden' && c.state !== 'charging') drawSpotlight(ctx, p, t); // S16: 캐릭터 주변만 밝게
   if (p && c.state !== 'hidden' && c.state !== 'charging') {
     drawCharacter(ctx, p.cx, p.cy, p.size, t, { // S7
       sprite: c.sprite, collected: c.sprite && isCollected(c.sprite.id) && c.state !== 'collect',
@@ -883,7 +906,7 @@ function lockedScreenBox() {
 function render(t) {
   state.frameTimes.push(t);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (video.videoWidth) { composite(t); if (params.get('debug') !== '0') drawDetections(t); } // S3
+  if (video.videoWidth) { composite(t); if (params.get('debug') === '1') drawDetections(t); } // S3 → S16: 박스는 ?debug=1일 때만
   updateHint(); // S5
   hud.textContent =
     `det ${hz(state.detTimes, t)} Hz | seg ${hz(state.segTimes, t)} Hz | fps ${hz(state.frameTimes, t)} | ${state.delegate}\n` +
