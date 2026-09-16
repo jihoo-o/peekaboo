@@ -6,6 +6,7 @@
 // S5: 탭 → wave, 셔터 → 공유/저장, 안내 문구
 // S7: 게임화 — 물체 기억(localStorage), 5초 유지 후 등장, 검댕이 캐릭터, 탭 수집/도감
 // S8: 공간 스캔 → 대상 물체 무작위 선택 → 물체 뒤 발광(가까울수록 강하게) → 5초 충전 → 짠! 등장
+// S10: 큰 물체는 옆에서 등장(화면 위 여유 없을 때) + 한 번 맞춘 물체는 이후 즉시 등장
 
 const VISION_VERSION = '0.10.35';
 const VISION_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VERSION}`;
@@ -425,13 +426,17 @@ function updateCharacter(now) {
     else { c.state = 'hide'; c.since = now; }
   }
   if (confirmed() && (c.state === 'hidden' || c.state === 'hide')) { // S7: 확정되면 충전 시작
-    c.state = 'charging'; c.since = now; c.progress = 0; c.sprite = pickSprite();
+    c.sprite = pickSprite(); c.since = now; c.progress = 0;
+    c.state = state.home?.solved ? 'peek' : 'charging'; // S10: 이미 맞춘 물체는 바로 짠!
   }
   const el = now - c.since;
   switch (c.state) {
     case 'charging': // S7: 5초 유지 → peek
       c.progress = 0;
-      if (el >= HOLD_MS) { c.state = 'peek'; c.since = now; }
+      if (el >= HOLD_MS) {
+        c.state = 'peek'; c.since = now;
+        if (state.home && !state.home.solved) { state.home.solved = true; store.set('home', state.home); } // S10: 정답 확정
+      }
       break;
     case 'peek': // S8: easeOutBack으로 튀어나옴 + 버스트(POP_MS 동안)
       c.progress = easeOutBack(Math.min(el / PEEK_MS, 1));
@@ -528,37 +533,62 @@ function drawCharacter(ctx, cx, cy, size, t, opts = {}) {
 }
 const easeOutBack = (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
 
-// S7: 충전 연출 — 물체 위로 검댕 알갱이가 떠오르고, 상단에 진행 호
-function drawCharging(ctx, b, t, k) {
+// S7: 충전 연출 — 등장 지점 주변으로 검댕 알갱이가 떠오르고 진행 호. S10: 등장 지점(p)은 위/옆 모두 대응
+function drawCharging(ctx, p, t, k) {
   ctx.save();
-  const cx = b.x + b.w / 2, top = b.y;
-  const range = b.h * 0.35;
+  const b = p.box, s = p.size;
+  // 등장 지점: 위쪽이면 bbox 상단 중앙, 옆이면 그 옆 가장자리의 중간 높이
+  const ox = p.side === 'top' ? b.x + b.w / 2 : p.side === 'right' ? b.x + b.w : b.x;
+  const oy = p.side === 'top' ? b.y : Math.min(Math.max(b.y + b.h * 0.55, 0), canvas.height);
+  const range = s * 0.7;
   for (let i = 0; i < 8; i++) {
     const phase = ((t / 7 + i * 61) % range);
-    const x = cx + (i - 3.5) * b.w * 0.11 + Math.sin(t / 450 + i) * b.w * 0.03;
-    const y = top - phase;
+    const x = ox + (i - 3.5) * s * 0.13 + Math.sin(t / 450 + i) * s * 0.04;
+    const y = oy - phase;
     ctx.globalAlpha = k * (1 - phase / range) * 0.9;
     ctx.fillStyle = '#1b1b1b';
-    ctx.beginPath(); ctx.arc(x, y, b.w * (0.012 + 0.012 * k), 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, s * (0.015 + 0.015 * k), 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalAlpha = 0.9;
-  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = Math.max(2, b.w * 0.02);
-  ctx.beginPath(); ctx.arc(cx, top - b.h * 0.12, b.w * 0.16, -Math.PI / 2, Math.PI * 1.5); ctx.stroke();
+  const ry = oy - s * 0.25;
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = Math.max(2, s * 0.025);
+  ctx.beginPath(); ctx.arc(ox, ry, s * 0.2, -Math.PI / 2, Math.PI * 1.5); ctx.stroke();
   ctx.strokeStyle = '#ffd54f';
-  ctx.beginPath(); ctx.arc(cx, top - b.h * 0.12, b.w * 0.16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
+  ctx.beginPath(); ctx.arc(ox, ry, s * 0.2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke();
   ctx.restore();
 }
 
-// 캐릭터의 현재 화면 배치 (하단 중심 x, y, 폭). 락이 없으면 null.
+// 캐릭터의 현재 화면 배치 (하단 중심 x, y, 폭, side). 락이 없으면 null.
+// S10: 위쪽 여유가 없으면(큰 물체·화면 상단) 여유가 더 많은 옆쪽에서 나온다. 크기는 화면 폭의 45%로 제한.
 function characterPlacement(t) {
   const b = lockedScreenBox(); if (!b) return null;
   const c = state.char;
   const dpr = canvas.width / canvas.clientWidth;
+  let size = Math.min(b.w * 0.8, canvas.width * 0.45);
+  const topMargin = 120 * dpr;                     // HUD 아래
+  const topRoom = b.y + b.h * 0.15 - size * 1.35;  // 완전 등장 시 캐릭터(털·말풍선 포함) 윗변
+  let side = 'top';
+  if (topRoom < topMargin) {
+    const leftRoom = b.x, rightRoom = canvas.width - (b.x + b.w);
+    const room = Math.max(leftRoom, rightRoom);
+    if (room >= 70 * dpr) {
+      side = rightRoom >= leftRoom ? 'right' : 'left';
+      size = Math.min(size, room / 1.0); // 등장 시 몸(85%)+털이 화면 안에 들어오도록
+    }
+  }
   let bob = c.state === 'idle' ? Math.sin(t / 400) * 2 * dpr : 0;
-  if (c.state === 'wave') bob = -Math.abs(Math.sin((t - c.since) / WAVE_MS * Math.PI * 2)) * 0.12 * b.h; // S5: 점프
-  if (c.state === 'collect') bob = -Math.abs(Math.sin((t - c.since) / COLLECT_MS * Math.PI)) * 0.2 * b.h; // S7: 큰 점프
-  const anchorY = b.y + b.h * (0.6 - 0.45 * c.progress) + bob; // 0.6h → 0.15h
-  return { cx: b.x + b.w / 2, cy: anchorY, size: b.w * 0.8, box: b };
+  if (c.state === 'wave') bob = -Math.abs(Math.sin((t - c.since) / WAVE_MS * Math.PI * 2)) * 0.12 * Math.min(b.h, size * 2); // S5: 점프
+  if (c.state === 'collect') bob = -Math.abs(Math.sin((t - c.since) / COLLECT_MS * Math.PI)) * 0.2 * Math.min(b.h, size * 2); // S7: 큰 점프
+  if (side === 'top') {
+    const anchorY = Math.max(b.y + b.h * (0.6 - 0.45 * c.progress), topMargin + size * 1.35) + bob; // 0.6h → 0.15h
+    return { cx: b.x + b.w / 2, cy: anchorY, size, side, box: b };
+  }
+  // 옆: 숨김 = bbox 안쪽(가려짐), 등장 = 몸의 85%가 bbox 밖으로
+  const dir = side === 'right' ? 1 : -1;
+  const edge = side === 'right' ? b.x + b.w : b.x;
+  const cx = edge + dir * (-size * 0.6 + size * 0.95 * c.progress);
+  const cy = Math.min(Math.max(b.y + b.h * 0.55, topMargin + size * 1.35), canvas.height - size * 0.3) + size / 2 + bob;
+  return { cx, cy, size, side, box: b };
 }
 
 // S3: 합성 — (1) video → (2) 캐릭터 → (3) video의 락 bbox 영역 재도장(사각 오클루전)
@@ -577,7 +607,7 @@ function composite(t) {
     });
     if (!(USE_MASK && occludeWithMask(s, ox, oy, vw, vh))) occlude(p, s, ox, oy, vw, vh); // S4 → S3 폴백
   }
-  if (p && c.state === 'charging') drawCharging(ctx, p.box, t, Math.min((t - c.since) / HOLD_MS, 1)); // S7
+  if (p && c.state === 'charging') drawCharging(ctx, p, t, Math.min((t - c.since) / HOLD_MS, 1)); // S7
   if (p && c.state === 'peek') drawPop(ctx, p.cx, p.cy, p.size, t, Math.min((t - c.since) / POP_MS, 1)); // S8
   if (state.phase === 'scan') { maybeFinishScan(t); if (state.phase === 'scan') drawScan(ctx, t); } // S8
   if (!state.lock) state.mask = null; // S4: 락 해제 시 마스크 폐기
@@ -631,7 +661,7 @@ function render(t) {
     `video ${video.videoWidth}x${video.videoHeight}\n` +
     `lock ${state.lock ? state.lock.label : '-'} | miss ${(state.missMs / 1000).toFixed(1)}s | char ${state.char.state}\n` +
     `mask ${USE_MASK ? (state.mask ? 'on' : 'none') : 'off'} | rej ${state.maskRejects}\n` +
-    `phase ${state.phase} | home ${state.home?.label ?? '-'} | near ${state.near.toFixed(2)} | hits ${state.hits}\n` +
+    `phase ${state.phase} | home ${state.home?.label ?? '-'}${state.home?.solved ? '✓' : ''} | near ${state.near.toFixed(2)} | hits ${state.hits}\n` +
     `sprite ${state.char.sprite?.id ?? '-'} | col ${state.collection.length}/${SPRITES.length}` +
     (state.error ? `\nERR ${state.error}` : '');
   requestAnimationFrame(render);
@@ -687,7 +717,7 @@ function updateHint() {
     text = n ? `주변을 천천히 둘러보세요… 물체 ${n}개 발견` : '주변을 천천히 둘러보세요';
   }
   else if (!state.lock) text = '이 공간 어딘가에 검댕이가 숨어 있어요. 빛나는 물건을 찾아보세요';
-  else if (c.state === 'hidden' || c.state === 'hide') text = state.near < 0.5 ? '빛이 보여요! 더 가까이…' : '여기다! 가만히 비춰보세요';
+  else if (c.state === 'hidden' || c.state === 'hide') text = state.home?.solved ? '' : state.near < 0.5 ? '빛이 보여요! 더 가까이…' : '여기다! 가만히 비춰보세요';
   else if (c.state === 'charging') text = `뭔가 나올 것 같아… (${Math.max(0, Math.ceil((HOLD_MS - (performance.now() - c.since)) / 1000))})`;
   else if (c.state === 'idle' && c.sprite && !isCollected(c.sprite.id)) text = '탭해서 수집!';
   if (msg.textContent !== text) msg.textContent = text;
@@ -712,7 +742,7 @@ function renderPanel() {
     el.appendChild(cap); slots.appendChild(el);
   }
   panel.querySelector('#home').textContent = state.home
-    ? `숨은 곳: ${state.collection.length ? state.home.label : '??? (빛나는 물건을 찾아보세요)'} · 스캔에서 본 물체: ${(state.home.seen ?? [state.home.label]).join(', ')}`
+    ? `숨은 곳: ${state.home.solved ? state.home.label + ' (맞춤!)' : '??? (빛나는 물건을 찾아보세요)'} · 스캔에서 본 물체: ${(state.home.seen ?? [state.home.label]).join(', ')}`
     : '스캔 중…';
 }
 badge.addEventListener('click', () => { renderPanel(); panel.hidden = !panel.hidden; });
