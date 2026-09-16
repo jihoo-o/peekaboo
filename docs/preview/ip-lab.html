@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+</head>
+<body style="margin:0">
+<title>브랜드 도감 IP 후보</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --bg: #F4F1EA; --card: #FFFFFF; --view: #FAF8F2; --ink: #2B2620; --ink-2: #6F675C; --line: #E3DDD2;
+    --accent: #F5C842; --accent-ink: #3C2A00; --hi: #2E8B57; --mid: #C7791B; --lo: #C23B3B; --focus: #2F6FE4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1A1815; --card: #24211D; --view: #2C2823; --ink: #F3EFE8; --ink-2: #ABA396; --line: #3A352E;
+      --accent: #F5C842; --accent-ink: #3C2A00; --hi: #5FCB8A; --mid: #F0A64A; --lo: #F07070; --focus: #7FA6F5;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1A1815; --card: #24211D; --view: #2C2823; --ink: #F3EFE8; --ink-2: #ABA396; --line: #3A352E;
+    --accent: #F5C842; --accent-ink: #3C2A00; --hi: #5FCB8A; --mid: #F0A64A; --lo: #F07070; --focus: #7FA6F5;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif; font-size: 15px; line-height: 1.6; padding-inline: 16px; padding-block: 20px 40px; }
+  .wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+  h1, h2, h3, .pick b, .step b, .ip-name { font-family: "Jua", "Noto Sans KR", system-ui, sans-serif; font-weight: 400; }
+  h1 { font-size: clamp(26px, 3.6vw, 36px); line-height: 1.15; margin: 0; text-wrap: balance; }
+  h1 em { font-style: normal; background: var(--accent); color: var(--accent-ink); padding: 0 8px; border-radius: 10px; }
+  .top p { margin: 6px 0 0; color: var(--ink-2); max-width: 68ch; }
+  h2 { font-size: 21px; margin: 0 0 4px; }
+  .sub { margin: 0 0 10px; color: var(--ink-2); font-size: 14px; max-width: 84ch; }
+  .picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+  .pick { background: var(--card); border: 1px solid var(--line); border-left: 6px solid var(--accent); border-radius: 16px; padding: 12px 16px; }
+  .pick b { font-size: 18px; display: block; margin-bottom: 2px; }
+  .pick p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .pick .why { color: var(--ink); }
+  .bench { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 1060px; font-size: 13px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  th, td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--view); color: var(--ink-2); font-weight: 500; font-size: 12px; letter-spacing: .04em; border-top: 0; }
+  .ip-name { font-size: 15px; white-space: nowrap; }
+  td small { display: block; color: var(--ink-2); font-size: 11.5px; }
+  .g { color: var(--hi); font-weight: 700; } .m { color: var(--mid); font-weight: 700; } .b { color: var(--lo); font-weight: 700; }
+  .dots { letter-spacing: 1px; color: var(--ink); white-space: nowrap; } .dots span { color: var(--line); }
+  td a { color: inherit; }
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; font-size: 13.5px; color: var(--ink-2); }
+  .step b { display: block; font-size: 17px; color: var(--ink); margin-bottom: 4px; }
+  .step ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 3px; }
+  .terms { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .term { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; font-size: 13px; color: var(--ink-2); }
+  .term b { display: block; color: var(--ink); font-size: 14px; font-weight: 500; }
+  .mail { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; font-size: 14px; white-space: pre-wrap; line-height: 1.7; color: var(--ink); }
+  .mail b { font-weight: 700; }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .notes section { border-top: 3px solid var(--accent); padding-top: 10px; }
+  .notes h3 { font-size: 15px; margin: 0 0 6px; }
+  .notes p, .notes li { color: var(--ink-2); font-size: 14px; margin: 0; }
+  .notes ul, .notes ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+  .notes a { color: inherit; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>라이선스를 구해볼 만한 <em>브랜드 도감 IP</em> 후보</h1>
+    <p>자체 캐릭터 대신 이미 브랜드가 된 도감형 IP를 빌리는 경우를 조사했습니다. 기준은 네 가지입니다. 도감 규모(모을 게 충분한가), 숨는 설정과의 궁합(물체 뒤에서 나오는 게 자연스러운가), MZ 하찮·귀여움 취향, 그리고 현실성(라이선스 창구가 열려 있고 앱·게임에 내준 선례가 있는가). 조사일 2026-09-16 기준이며, 정확한 조건은 각 창구에 문의해야 확정됩니다.</p>
+  </header>
+
+  <section class="picks">
+    <div class="pick"><b>1. 캐치! 티니핑 (SAMG)</b><p class="why">"숨은 티니핑을 잡는다"가 원작 설정이라 컨셉이 그대로 겹칩니다. 배틀그라운드 모바일, 카트라이더 러쉬플러스, 플레이투게더와 협업했고 자체 앱 '숨은그림찾기'도 있어 게임·앱 라이선스 선례가 가장 많습니다.</p><p>리스크: 핵심 타깃이 키즈, 대형 파트너 위주라 MG가 부담될 수 있음.</p></div>
+    <div class="pick"><b>2. 산리오 캐릭터즈 (산리오코리아)</b><p class="why">450개 IP, 캐릭터 대상 랭킹만 90종. 라이선스 절차가 명문화(신청→심사→계약→디자인 승인)되어 있고, 2026년 자체 게임 브랜드를 띄우면서도 외부 게임 라이선스는 계속 확대한다고 밝혔습니다. MZ 여성 최애.</p><p>리스크: 숨는 설정이 없어 세계관을 우리가 만들어야 함. 로열티 높음.</p></div>
+    <div class="pick"><b>3. 인디 이모티콘 작가 연합 도감</b><p class="why">망그러진 곰, 최고심, 가나디 같은 작가 캐릭터를 "시즌 게스트"로 한 도감에 모읍니다. 작가 개인·소속사와 소액 계약이라 가장 현실적이고, 하찮·귀여움 취향에 정확히 맞습니다. 잔망루피(아이코닉스)는 라이선스 문의 페이지가 있습니다.</p><p>리스크: 캐릭터당 종 수가 적어 표정·코스튬 변주로 도감을 채워야 함.</p></div>
+  </section>
+
+  <section>
+    <h2>후보 13개 비교</h2>
+    <p class="sub">현실성은 창구 공개 여부, 앱·게임 라이선스 선례, 소규모 파트너 수용 가능성을 종합한 제 판단입니다. 도감 규모의 숫자는 조사에서 확인된 값이고, "추정"은 확인하지 못한 값입니다.</p>
+    <div class="bench"><table>
+      <thead><tr><th>IP</th><th>권리자 · 한국 창구</th><th>도감 규모</th><th>숨는 설정 궁합</th><th>MZ 하찮·귀여움</th><th>앱·게임 라이선스 선례</th><th>현실성</th></tr></thead>
+      <tbody>
+        <tr><td class="ip-name">캐치! 티니핑</td><td>SAMG엔터테인먼트<small>라이선스사업 부서 직접 제안</small></td><td>시즌6까지 100종 이상 추정<small>시즌6에서 로열 티니핑 20여 종 추가</small></td><td class="dots">●●●●●<small>숨은 티니핑을 잡는 원작 설정</small></td><td class="dots">●●●<span>●●</span><small>키즈 중심, 키덜트 확산</small></td><td>배틀그라운드 모바일 · 카트라이더 러쉬플러스 · 플레이투게더 · 자체 앱 숨은그림찾기</td><td class="m">중</td></tr>
+        <tr><td class="ip-name">산리오 캐릭터즈</td><td>산리오 · 산리오코리아<small>신청서 접수 → 심사 → 계약 → 디자인 사전승인</small></td><td>450 IP, 캐릭터 대상 90종</td><td class="dots">●●<span>●●●</span><small>세계관은 우리가 설계</small></td><td class="dots">●●●●●<small>쿠로미·시나모롤·폼폼푸린</small></td><td>라이선스 게임 다수, 명일방주 콜라보 2회, 헬로키티 마이 드림 스토어, 2026 Sanrio Games</td><td class="m">중</td></tr>
+        <tr><td class="ip-name">신비아파트</td><td>CJ ENM<small>게임은 파트너 개발(고스트헌터: 3F Factory)</small></td><td>귀신 142종</td><td class="dots">●●●●●<small>현실에 숨은 귀신 AR 포획</small></td><td class="dots">●●<span>●●●</span><small>키즈, 무서움 톤</small></td><td>고스트헌터(2018, AR 포획, 150만 DL) · 고스트워</td><td class="m">중하<small>같은 컨셉의 자사 앱이 이미 있음</small></td></tr>
+        <tr><td class="ip-name">먼작귀(치이카와)</td><td>나가노 · 한국은 대원미디어<small>IP 마켓 inabooth에도 등재</small></td><td>주요 캐릭터 20종 안팎</td><td class="dots">●●●<span>●●</span></td><td class="dots">●●●●●<small>하찮·귀여움의 원형</small></td><td>소니엔젤 히퍼스 콜라보, 굿즈·팝업 위주</td><td class="m">중하<small>인기 정점이라 조건 높음</small></td></tr>
+        <tr><td class="ip-name">잔망루피</td><td>아이코닉스<small><a href="https://www.iconix.co.kr/index.php?mid=icon6_02">라이선스 문의 페이지</a> · 링크트리 제휴 채널</small></td><td>1 캐릭터 + 표정 변주</td><td class="dots">●●●<span>●●</span></td><td class="dots">●●●●●<small>2026.3 카카오 4위</small></td><td>중국 진출 등 라이선스 확장 중</td><td class="m">중<small>도감은 표정·코스튬으로</small></td></tr>
+        <tr><td class="ip-name">망그러진 곰</td><td>작가 유랑<small><a href="https://litt.ly/mangomee">리틀리 공식 채널</a>로 직접 제안</small></td><td>곰 가족 + 시리즈</td><td class="dots">●●●<span>●●</span></td><td class="dots">●●●●●</td><td>두산베어스 콜라보 이모티콘, 띠부씰 수집 앱 존재</td><td class="g">중상<small>인디 작가, 소규모 협업 열림</small></td></tr>
+        <tr><td class="ip-name">쿠키런</td><td>데브시스터즈<small>2026.7 '오픈 IP' 선언(행사 내 계약 없이 활용). 앱 적용 범위는 확인 필요</small></td><td>쿠키 수백 종 추정</td><td class="dots">●●<span>●●●</span></td><td class="dots">●●●●<span>●</span></td><td>TCG·출판·전시·VR 확장, 오픈 IP</td><td class="m">중<small>오픈 IP 범위에 앱이 들어가면 상</small></td></tr>
+        <tr><td class="ip-name">메이플스토리</td><td>넥슨<small>IP 사업 부서</small></td><td>몬스터 수백 종(주황버섯·슬라임…)</td><td class="dots">●●●<span>●●</span><small>몬스터가 숨는 설정은 자연스러움</small></td><td class="dots">●●●●<span>●</span><small>2030 향수</small></td><td>메이플 키우기(에이블게임즈 외부 개발) · 롯데월드 콜라보</td><td class="m">중하<small>대형 파트너 위주</small></td></tr>
+        <tr><td class="ip-name">스퀴시멜로우</td><td>Jazwares<small>공식 라이선싱 프로그램 운영</small></td><td>1,000종 이상, 각자 이름·설정</td><td class="dots">●●<span>●●●</span></td><td class="dots">●●●●<span>●</span></td><td>굿즈 중심, 컬렉터 앱 존재</td><td class="m">중하<small>한국 인지도 아직 낮음</small></td></tr>
+        <tr><td class="ip-name">스미스키 · 소니엔젤</td><td>Dreams Inc.</td><td>시리즈별 포즈 수백</td><td class="dots">●●●●●<small>빼꼼·매달리기가 정체성</small></td><td class="dots">●●●●<span>●</span></td><td>먼작귀·산리오 콜라보, 굿즈 중심</td><td class="m">중하<small>디지털 선례 적음</small></td></tr>
+        <tr><td class="ip-name">포켓몬</td><td>The Pokémon Company · 포켓몬코리아<small>승인제, 사실상 대형 파트너만</small></td><td>1,000종 이상</td><td class="dots">●●●●<span>●</span></td><td class="dots">●●●<span>●●</span></td><td>모바일은 파트너 개발이지만 Niantic·DeNA급</td><td class="b">하</td></tr>
+        <tr><td class="ip-name">요괴워치</td><td>레벨파이브</td><td>요괴 800종 이상</td><td class="dots">●●●●●<small>일상에 숨은 요괴</small></td><td class="dots">●●<span>●●●</span></td><td>자사 게임 중심</td><td class="b">하<small>한국 인지도 낮음</small></td></tr>
+        <tr><td class="ip-name">팝마트(라부부·몰리·스컬판다)</td><td>Pop Mart</td><td>IP별 시리즈 수십</td><td class="dots">●●<span>●●●</span></td><td class="dots">●●●●<span>●</span></td><td>산리오·웬즈데이·마이리틀포니급 대형 콜라보</td><td class="b">하</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>제안 순서</h2>
+    <p class="sub">대형 IP는 "지표 없는 제안"을 받지 않습니다. 순서를 지키면 같은 제안서로 성사 확률이 달라집니다.</p>
+    <div class="steps">
+      <div class="step"><b>1. 자체 캐릭터로 지표 만들기</b><ul><li>지금 앱에 앞서 만든 도깨비 도감을 넣고 2~4주 운영</li><li>D1·D7 리텐션, 평균 수집 수, 셔터 공유 수를 모음</li><li>IP는 "갈아끼울 수 있는 스킨"으로 설계해 둠</li></ul></div>
+      <div class="step"><b>2. 인디 작가 한 명과 시즌 콜라보</b><ul><li>망그러진 곰·최고심급 작가 1명, 캐릭터 5~10종, 4주 시즌</li><li>소액 MG 또는 수익 배분, 비독점</li><li>이 결과가 대형 IP 제안서의 "선례" 페이지가 됨</li></ul></div>
+      <div class="step"><b>3. 대형 IP 제안</b><ul><li>티니핑(컨셉 일치) 또는 산리오(절차 공개) 중 하나</li><li>제안서 + 30초 영상 + 2단계 지표</li><li>승인 절차(디자인 사전승인)에 2~3개월 잡기</li></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>계약에서 나오는 말들</h2>
+    <p class="sub">국내 캐릭터 라이선스 관행입니다. 앱은 매출 기준 러닝 로열티로 잡는 경우가 많고, 숫자는 협상으로 크게 달라집니다.</p>
+    <div class="terms">
+      <div class="term"><b>MG(미니멈 개런티)</b>계약 시 선지급하는 로열티 선금. 국내 굿즈 예시로 MG 500만 원 + 출고가 8%가 흔히 인용됩니다. 기대 수익의 70% 선에서 잡는 관행.</div>
+      <div class="term"><b>러닝 로열티</b>매출의 일정 비율. MG를 다 소진한 뒤부터 정산. 앱은 인앱 매출·광고 매출 기준으로 정의해야 합니다.</div>
+      <div class="term"><b>사용 범위</b>앱 내 표시, 도감, 셔터 합성 사진의 SNS 공유까지 명시. 공유는 별도 항목으로 빼는 게 안전합니다.</div>
+      <div class="term"><b>디자인 사전승인</b>모든 노출 화면과 캐릭터 포즈를 사전 승인. 우리가 그린 "하찮은 표정"이 반려될 수 있어 스타일 가이드 준수가 조건.</div>
+      <div class="term"><b>독점·지역·기간</b>비독점, 한국, 1년으로 시작. 독점을 요구하면 MG가 뜁니다.</div>
+      <div class="term"><b>공동 마케팅</b>IP사가 원하는 건 팬덤 노출. 도감 완성 인증 이벤트, 팝업 연계를 제안서에 넣으면 협상력이 올라갑니다.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>제안서 초안 (메일용)</h2>
+    <p class="sub">티니핑 기준으로 썼고, 대괄호만 바꾸면 산리오·작가에게도 보낼 수 있습니다.</p>
+    <div class="mail"><b>제목: [Peekaboo] 현실 속에 숨은 [티니핑]을 찾아 모으는 AR 도감 앱 라이선스 제안</b>
+
+안녕하세요, Peekaboo를 만들고 있는 [이름]입니다.
+
+Peekaboo는 스마트폰 카메라로 방을 비추면 물건 뒤에 숨어 있던 캐릭터가 빼꼼 나타나고, 탭해서 도감에 모으는 AR 앱입니다. 별도 앱 설치 없이 웹에서 바로 실행되고, 인식할 수 있는 물건이 55종이라 물건마다 다른 캐릭터를 배치할 수 있습니다.
+
+[티니핑]의 "숨어 있는 티니핑을 찾아 잡는다"는 설정이 이 구조와 정확히 맞아 제안드립니다.
+
+· 사용 범위: 앱 내 캐릭터 표시, 도감, 사용자가 찍은 합성 사진의 SNS 공유
+· 규모: 1차 [20]종, 시즌제로 확대
+· 조건: 비독점, 한국, 1년, MG + 러닝 로열티(협의)
+· 현재 지표: [D7 리텐션 __%, 평균 수집 __종, 공유 __건] (자체 캐릭터 운영 [4]주 기준)
+· 선례: [작가명]과의 시즌 콜라보 결과 첨부
+
+30초 시연 영상과 원페이저를 첨부합니다. 15분 통화로 설명드릴 수 있으면 감사하겠습니다.
+
+[이름] · [연락처] · [앱 링크]</div>
+  </section>
+
+  <footer class="notes">
+    <section>
+      <h3>창구 링크</h3>
+      <ul>
+        <li><a href="https://www.iconix.co.kr/index.php?mid=icon6_02">아이코닉스 라이선스 문의</a> (잔망루피·뽀로로)</li>
+        <li><a href="https://litt.ly/mangomee">망그러진 곰 공식 채널</a> · <a href="https://linktr.ee/zanmangloopy">잔망루피 링크트리</a></li>
+        <li><a href="http://sanriokorea.co.kr/company/business/">산리오코리아 사업영역</a> · <a href="https://www.sanrio-games.jp/ko/">Sanrio Games</a></li>
+        <li><a href="https://inabooth.io/ko/ip/INB-CDE4-A23C">inabooth 먼작귀 IP 페이지</a> (국내 IP 라이선싱 마켓플레이스, 다른 IP도 검색 가능)</li>
+        <li><a href="https://corporate.pokemon.co.jp/en/business/licences/">The Pokémon Company 라이선스 안내</a></li>
+      </ul>
+    </section>
+    <section>
+      <h3>근거</h3>
+      <ul>
+        <li><a href="https://www.kyeonggi.com/article/20260723580424">SAMG × 플레이투게더</a> · <a href="https://edaily.co.kr/News/Read?mediaCodeNo=257&newsId=04090166645515176">SAMG × 카트라이더 러쉬플러스</a> · <a href="https://v.daum.net/v/7ci4GYaeCm?f=p">SAMG × 배틀그라운드 모바일</a></li>
+        <li><a href="https://www.nspna.com/news/?mode=view&newsid=329799">신비아파트 고스트헌터 150만 DL, AR 포획</a> · <a href="https://namu.wiki/w/%EC%8B%A0%EB%B9%84%EC%95%84%ED%8C%8C%ED%8A%B8%20%EC%8B%9C%EB%A6%AC%EC%A6%88/%EB%93%B1%EC%9E%A5%20%EA%B7%80%EC%8B%A0">등장 귀신 142종</a></li>
+        <li><a href="https://corporate.sanrio.co.jp/en/news/20260421.html">Sanrio Games 출범(2026.4)</a> · <a href="https://ranking.sanrio.co.jp/ko/characters/">산리오 캐릭터 대상 엔트리</a> · <a href="https://combyun.com/%EC%BA%90%EB%A6%AD%ED%84%B0-%EB%9D%BC%EC%9D%B4%EC%84%BC%EC%8A%A4-%EB%B9%84%EC%9A%A9-%EC%82%B0%EB%A6%AC%EC%98%A4-%EC%A7%B1%EA%B5%AC-%ED%8F%AC%EC%BC%93%EB%AA%AC-%EC%BA%90%EB%A6%AD%ED%84%B0-%EA%B7%B8/">산리오코리아 라이선스 절차</a></li>
+        <li><a href="https://www.enetnews.co.kr/news/articleView.html?idxno=52346">쿠키런 오픈 IP</a> · <a href="https://namu.wiki/w/%EB%A9%94%EC%9D%B4%ED%94%8C%20%ED%82%A4%EC%9A%B0%EA%B8%B0">메이플 키우기(외부 개발)</a></li>
+        <li><a href="https://danipent.com/portfolio/%EC%BA%90%EB%A6%AD%ED%84%B0%EB%9D%BC%EC%9D%B4%EC%84%A0%EC%8B%B1-%EB%A1%9C%EC%97%B4%ED%8B%B0-%EC%96%BC%EB%A7%88%EB%82%98-%EC%96%B4%EB%96%BB%EA%B2%8C/">캐릭터 라이선스 로열티 관행</a> · <a href="https://brunch.co.kr/@vivasam/4">MG와 러닝 로열티</a></li>
+      </ul>
+    </section>
+    <section>
+      <h3>한계</h3>
+      <ul>
+        <li>티니핑 총 종 수, 쿠키 총 종 수, 쿠키런 오픈 IP의 앱 적용 범위는 확인하지 못했습니다. 문의 시 첫 질문으로 넣으세요.</li>
+        <li>SAMG·CJ ENM·넥슨·팝마트는 공개된 신청 양식이 없어 담당 부서 직접 제안이 필요합니다.</li>
+        <li>이 페이지에는 IP 이미지를 넣지 않았습니다. 라이선스 전에는 제안서에도 공식 이미지를 쓰면 안 됩니다.</li>
+      </ul>
+    </section>
+  </footer>
+</div>
+
+</body>
+</html>

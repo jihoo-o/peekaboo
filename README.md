@@ -71,6 +71,8 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 
 `docs/preview/theme-lab.html` researches what makes collections compelling (Pokémon, Pokémon bread stickers, Neko Atsume, Pikmin Bloom decor, Animal Crossing, blind boxes), compares five collection themes for this app, and mocks up the recommended one: a *household-object goblin* dex where each of the 55 targetable COCO classes is one species (one base character plus 55 costumes), grouped into eight room sets with rarity tiers and a night-time variant. The mock dex is clickable.
 
+`docs/preview/ip-lab.html` looks at the other route: licensing an existing branded roster instead of inventing one. It compares 13 IPs (Catch! Teenieping, Sanrio, Shinbi Apartment, Chiikawa, Zanmang Loopy, Broken Bear, Cookie Run, MapleStory, Squishmallows, Smiski, Pokémon, Yo-kai Watch, Pop Mart) on roster size, fit with the hide-and-appear mechanic, MZ taste, app-licensing precedent and feasibility, lists the contact routes, explains MG and running-royalty terms, and includes a proposal email draft. No IP artwork is included.
+
 ## Not yet verified on a phone
 
 - Detection / segmentation Hz, heat, and mask flicker on real Android Chrome (if flicker is bad, set `MASK_EMA` in `app.js` to 0.7).
