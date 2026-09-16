@@ -19,3 +19,4 @@
 | [0013](0013-scan-then-random-target-and-glow.md) | 스캔 후 대상 물체 무작위 선택·저장, 가까움 = bbox 폭, 발광 = lighter 합성, 짠! 등장 |
 | [0014](0014-targetable-all-but-excluded.md) | 타깃 가능 클래스 = COCO 전부에서 사람·동물·탈것·거리 시설물·큰 면만 제외 |
 | [0015](0015-side-placement-and-solved-skip.md) | 위 여유 없으면 옆에서 등장(좌우 여유 비교), 맞춘 물체는 solved 저장 후 즉시 등장 |
+| [0016](0016-sneak-out-instead-of-pop.md) | 짠! 대신 스을쩍: 완전히 가려진 위치에서 2.4초 스니크 곡선(움찔 포함)으로 걸어 나옴 |
