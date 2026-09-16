@@ -69,6 +69,8 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 
 `docs/preview/motion-lab.html` animates those 59 candidates like messenger emoticons: 45 use Microsoft's official Fluent Emoji animations (MIT, re-encoded to 128px animated WebP under `docs/preview/fluent3d-anim/`), the rest get CSS motion presets (bounce, shiver, shake, nod, pop, peek, look, tears, sparkle) that map to the app's states; tap a tile to squash it.
 
+`docs/preview/theme-lab.html` researches what makes collections compelling (Pokémon, Pokémon bread stickers, Neko Atsume, Pikmin Bloom decor, Animal Crossing, blind boxes), compares five collection themes for this app, and mocks up the recommended one: a *household-object goblin* dex where each of the 55 targetable COCO classes is one species (one base character plus 55 costumes), grouped into eight room sets with rarity tiers and a night-time variant. The mock dex is clickable.
+
 ## Not yet verified on a phone
 
 - Detection / segmentation Hz, heat, and mask flicker on real Android Chrome (if flicker is bad, set `MASK_EMA` in `app.js` to 0.7).

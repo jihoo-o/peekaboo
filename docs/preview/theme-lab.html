@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+</head>
+<body style="margin:0">
+<title>수집 테마 랩</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --bg: #F4F1EA; --card: #FFFFFF; --view: #FAF8F2; --ink: #2B2620; --ink-2: #6F675C; --line: #E3DDD2;
+    --accent: #F5C842; --accent-ink: #3C2A00; --focus: #2F6FE4;
+    --c: #B8B2A8; --u: #5FA36E; --r: #4A8DE0; --l: #E0A020; --slot: #E9E4DA; --sil: #C9C2B6; --night: #3B3552;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1A1815; --card: #24211D; --view: #2C2823; --ink: #F3EFE8; --ink-2: #ABA396; --line: #3A352E;
+      --accent: #F5C842; --accent-ink: #3C2A00; --focus: #7FA6F5;
+      --c: #7E776D; --u: #6FC282; --r: #7FAEF0; --l: #F0C050; --slot: #332E28; --sil: #4A443C; --night: #9A90C8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1A1815; --card: #24211D; --view: #2C2823; --ink: #F3EFE8; --ink-2: #ABA396; --line: #3A352E;
+    --accent: #F5C842; --accent-ink: #3C2A00; --focus: #7FA6F5;
+    --c: #7E776D; --u: #6FC282; --r: #7FAEF0; --l: #F0C050; --slot: #332E28; --sil: #4A443C; --night: #9A90C8;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif; font-size: 15px; line-height: 1.6; padding-inline: 16px; padding-block: 20px 40px; }
+  .wrap { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+  h1, h2, h3, .mech b, .theme .name, .verdict b, .dex-head b, .set-title, .btn { font-family: "Jua", "Noto Sans KR", system-ui, sans-serif; font-weight: 400; }
+  h1 { font-size: clamp(26px, 3.6vw, 36px); line-height: 1.15; margin: 0; text-wrap: balance; }
+  h1 em { font-style: normal; background: var(--accent); color: var(--accent-ink); padding: 0 8px; border-radius: 10px; }
+  .top p { margin: 6px 0 0; color: var(--ink-2); max-width: 66ch; }
+  h2 { font-size: 21px; margin: 0 0 4px; }
+  .sub { margin: 0 0 10px; color: var(--ink-2); font-size: 14px; max-width: 80ch; }
+  .mechs { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+  .mech { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; font-size: 13px; color: var(--ink-2); }
+  .mech b { display: block; font-size: 16px; color: var(--ink); }
+  .mech span { display: block; margin-top: 4px; font-size: 12px; color: var(--ink-2); }
+  .themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .theme { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 6px; position: relative; }
+  .theme.rec { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+  .theme .tag { position: absolute; top: -10px; left: 14px; background: var(--accent); color: var(--accent-ink); font-size: 12px; padding: 1px 10px; border-radius: 999px; }
+  .theme .name { font-size: 20px; line-height: 1.2; }
+  .theme p { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+  .theme p b { color: var(--ink); font-weight: 500; }
+  .score { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; font-size: 12px; color: var(--ink-2); border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 2px; }
+  .dots { letter-spacing: 2px; font-size: 13px; color: var(--ink); } .dots span { color: var(--line); }
+  .verdict { background: var(--card); border: 1px solid var(--line); border-left: 6px solid var(--accent); border-radius: 16px; padding: 14px 18px; }
+  .verdict b { font-size: 18px; display: block; margin-bottom: 4px; } .verdict p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  /* 도감 목업 */
+  .dex { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .dex-head { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; justify-content: space-between; }
+  .dex-head b { font-size: 22px; }
+  .progress { flex: 1 1 220px; height: 12px; background: var(--slot); border-radius: 999px; overflow: hidden; }
+  .progress i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .35s; }
+  .count { font-variant-numeric: tabular-nums; font-size: 14px; color: var(--ink-2); }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); align-items: center; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .btn { border: 1px solid var(--line); background: var(--view); color: var(--ink); border-radius: 999px; padding: 4px 14px; font-size: 14px; cursor: pointer; }
+  .btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn:focus-visible, .slot:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .set { display: flex; flex-direction: column; gap: 6px; }
+  .set-title { font-size: 15px; display: flex; gap: 10px; align-items: baseline; }
+  .set-title small { font-family: "Noto Sans KR", system-ui, sans-serif; color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .set-title .done { background: var(--accent); color: var(--accent-ink); font-size: 11px; padding: 0 8px; border-radius: 999px; font-family: "Noto Sans KR", system-ui, sans-serif; }
+  .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+  .slot { position: relative; background: var(--slot); border-radius: 12px; padding: 8px 4px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; border: 2px solid transparent; user-select: none; }
+  .slot .rar { position: absolute; top: 6px; left: 6px; width: 8px; height: 8px; border-radius: 50%; }
+  .slot[data-r="C"] .rar { background: var(--c); } .slot[data-r="U"] .rar { background: var(--u); } .slot[data-r="R"] .rar { background: var(--r); } .slot[data-r="L"] .rar { background: var(--l); }
+  .slot .art { position: relative; width: 56px; height: 60px; }
+  .slot svg { width: 56px; height: 56px; position: absolute; left: 0; top: 6px; }
+  .slot .hat { position: absolute; left: 50%; top: -6px; transform: translateX(-50%); font-size: 24px; line-height: 1; opacity: 0; filter: grayscale(1) brightness(.3); }
+  .slot .nm { font-size: 11.5px; line-height: 1.2; text-align: center; color: var(--ink-2); }
+  .slot .en { font-size: 9.5px; color: var(--ink-2); opacity: .7; }
+  .slot.got { background: var(--view); border-color: var(--line); }
+  .slot.got .body { fill: #F6F0E1; } .slot.got .hat { opacity: 1; filter: none; } .slot.got .nm { color: var(--ink); font-weight: 500; }
+  .slot.got .face { opacity: 1; }
+  .slot.new .art { animation: pop .5s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes pop { 0% { transform: scale(.4); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
+  .body { fill: var(--sil); stroke: none; } .face { opacity: 0; }
+  .slot[data-r="L"].got { background: linear-gradient(180deg, #FFF6D6, var(--view)); }
+  .night .slot.got .body { fill: var(--night); } .night .slot.got .eye { fill: #FFD84A; } .night .slot.got .nm::after { content: " · 밤"; color: var(--night); }
+  .bench { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 700px; font-size: 13px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  th, td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--view); color: var(--ink-2); font-weight: 500; font-size: 12px; letter-spacing: .04em; border-top: 0; }
+  td:first-child { font-weight: 500; white-space: nowrap; }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .notes section { border-top: 3px solid var(--accent); padding-top: 10px; }
+  .notes h3 { font-size: 15px; margin: 0 0 6px; }
+  .notes p, .notes li { color: var(--ink-2); font-size: 14px; margin: 0; }
+  .notes ul, .notes ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+  .notes code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--view); padding: 1px 6px; border-radius: 6px; }
+  .notes a { color: inherit; }
+  @media (prefers-reduced-motion: reduce) { .slot.new .art { animation: none; } .progress i { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>포켓몬처럼 <em>모으고 싶어지는</em> 주제 찾기</h1>
+    <p>포켓몬, 포켓몬빵 띠부씰, 네코아츠메, 피크민 블룸, 동물의 숲, 블라인드박스가 사람을 붙잡는 장치를 먼저 뽑고, 그 장치가 전부 작동하는 주제를 Peekaboo의 구조("물체 뒤에 숨는다", 인식 가능한 물체 55종)에 맞춰 골랐습니다. 아래 도감 목업은 눌러서 채워볼 수 있습니다.</p>
+  </header>
+
+  <section>
+    <h2>수집 욕구를 만드는 장치 9가지</h2>
+    <p class="sub">히트작에서 반복해서 나오는 것만 추렸습니다. 주제를 고를 때 이 아홉 개가 자연스럽게 붙는지가 기준입니다.</p>
+    <div class="mechs">
+      <div class="mech"><b>빈칸이 보이는 도감</b>실루엣과 "???"로 없는 게 먼저 보인다.<span>포켓몬 도감 · 띠부씰 앨범(시즌5 150종)</span></div>
+      <div class="mech"><b>희귀도 등급</b>흔함·희귀·전설. 확률이 낮은 게 있어야 나머지가 의미 있다.<span>띠부씰 30주년 한정 18종 · 블라인드박스 시크릿</span></div>
+      <div class="mech"><b>장소·물체 연동 출현</b>어디서 찾느냐가 종을 정한다. 돌아다닐 이유.<span>피크민 블룸 장소 데코 41종 · 포켓몬 GO 바이옴</span></div>
+      <div class="mech"><b>시간·계절 한정</b>지금 아니면 못 잡는다.<span>동물의 숲 곤충·물고기 · 포켓몬 GO 이벤트</span></div>
+      <div class="mech"><b>세트 완성 보너스</b>부분 완성에도 보상. 다음 세트로 넘어갈 이유.<span>포켓피스 114종 시리즈 · 산리오 세트</span></div>
+      <div class="mech"><b>성장·진화</b>같은 걸 또 만나도 의미가 있다.<span>포켓몬 진화 · 피크민 꽃 피우기</span></div>
+      <div class="mech"><b>하나의 몸, 많은 변주</b>캐릭터 1개 + 코스튬 N개. 제작비는 낮고 도감은 넓다.<span>피크민 블룸 데코 피크민</span></div>
+      <div class="mech"><b>알림 없이 직접 확인</b>열어봐야 왔는지 안다. 그래서 자꾸 연다.<span>네코아츠메(푸시 없음, CEDEC 게임디자인상)</span></div>
+      <div class="mech"><b>자랑거리</b>사진·공유·랭킹. 팝마트 조사에서 70%가 원하는 걸 위해 3개 이상 산다.<span>띠부씰 자랑 · 누이카츠 · 셔터 버튼(이미 있음)</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>테마 5안</h2>
+    <p class="sub">점수는 수집 욕구(장치 9개가 붙는 정도), 하찮·귀여움 적합, Peekaboo 구조 적합, 독창성입니다. 제 평가입니다.</p>
+    <div class="themes">
+      <article class="theme rec"><span class="tag">추천</span><div class="name">물건 도깨비 코스튬 도감</div>
+        <p>손때 묻은 물건에 도깨비가 깃든다는 우리 민속(빗자루·부지깽이·절굿공이 도깨비)을 그대로. 물체 55종마다 그 물건 조각을 쓴 도깨비 한 종.</p>
+        <p><b>왜 모으나</b> 종 = 앱이 인식하는 물체. 방마다 세트, 물체 희귀도 = 등급, 밤 10시 이후엔 밤 도깨비 시크릿.</p>
+        <p><b>제작</b> 베이스 캐릭터 1 + 코스튬 55. 피크민 블룸 데코 방식.</p>
+        <dl class="score"><dt>수집 욕구</dt><dd class="dots" data-s="5"></dd><dt>하찮·귀여움</dt><dd class="dots" data-s="4"></dd><dt>Peekaboo</dt><dd class="dots" data-s="5"></dd><dt>독창성</dt><dd class="dots" data-s="5"></dd></dl></article>
+      <article class="theme"><div class="name">집냥이 도감</div>
+        <p>가구 뒤에 숨어 사는 길고양이 40마리. 네코아츠메 공식. 각 고양이는 좋아하는 물건이 있고, 친해지면 보물을 준다.</p>
+        <p><b>왜 모으나</b> 검증된 욕구. 성격·선호·보물 3중 수집.</p>
+        <p><b>리스크</b> 네코아츠메가 그대로 경쟁작. 고양이는 앱이 타깃에서 제외한 클래스라 물체 연동이 약함.</p>
+        <dl class="score"><dt>수집 욕구</dt><dd class="dots" data-s="5"></dd><dt>하찮·귀여움</dt><dd class="dots" data-s="4"></dd><dt>Peekaboo</dt><dd class="dots" data-s="3"></dd><dt>독창성</dt><dd class="dots" data-s="2"></dd></dl></article>
+      <article class="theme"><div class="name">먼지뭉치 도감</div>
+        <p>소파 밑, 책 뒤의 먼지·보풀·머리카락뭉치가 종. 지금 검댕이의 직계.</p>
+        <p><b>왜 모으나</b> 하찮음은 최고. 물건별 먼지 성격(리모컨 먼지는 잘 도망감).</p>
+        <p><b>리스크</b> 다 회색 덩어리라 도감이 단조롭다. 55종 변주가 어렵다.</p>
+        <dl class="score"><dt>수집 욕구</dt><dd class="dots" data-s="3"></dd><dt>하찮·귀여움</dt><dd class="dots" data-s="5"></dd><dt>Peekaboo</dt><dd class="dots" data-s="4"></dd><dt>독창성</dt><dd class="dots" data-s="4"></dd></dl></article>
+      <article class="theme"><div class="name">별자리 정령 도감</div>
+        <p>별사탕 6색을 별자리 88개로 확장. 계절 별자리는 그 계절에만 나온다.</p>
+        <p><b>왜 모으나</b> 시간 한정이 강력. 88칸 도감.</p>
+        <p><b>리스크</b> 물체와 무관해서 "왜 이 컵 뒤에 오리온이?"가 설명 안 됨. 하찮음과 거리가 멀다.</p>
+        <dl class="score"><dt>수집 욕구</dt><dd class="dots" data-s="4"></dd><dt>하찮·귀여움</dt><dd class="dots" data-s="2"></dd><dt>Peekaboo</dt><dd class="dots" data-s="2"></dd><dt>독창성</dt><dd class="dots" data-s="3"></dd></dl></article>
+      <article class="theme"><div class="name">간식 요정 도감</div>
+        <p>포켓몬빵처럼 간식마다 요정. 컵 뒤엔 커피 요정, 냉장고 뒤엔 아이스크림 요정.</p>
+        <p><b>왜 모으나</b> 먹는 것과 붙어 반응이 빠르고, 나중에 브랜드 협업 여지.</p>
+        <p><b>리스크</b> 물체 55종 중 먹거리는 10종뿐. 나머지가 억지.</p>
+        <dl class="score"><dt>수집 욕구</dt><dd class="dots" data-s="4"></dd><dt>하찮·귀여움</dt><dd class="dots" data-s="4"></dd><dt>Peekaboo</dt><dd class="dots" data-s="3"></dd><dt>독창성</dt><dd class="dots" data-s="2"></dd></dl></article>
+    </div>
+  </section>
+
+  <div class="verdict"><b>추천: 물건 도깨비 코스튬 도감</b><p>장치 9개가 억지 없이 전부 붙는 유일한 안입니다. 종이 곧 앱이 인식하는 물체라 "이 컵 뒤에 왜 이게 있지"가 설명되고, 도깨비가 오래된 물건에서 생긴다는 민속이 세계관을 공짜로 줍니다. 캐릭터는 하나만 만들고 코스튬 55개로 도감을 채우니 제작비도 가장 낮습니다. 아래 목업에서 눌러 보세요.</p></div>
+
+  <section class="dex" id="dex">
+    <div class="dex-head">
+      <b>물건 도깨비 도감</b>
+      <div class="progress"><i id="bar"></i></div>
+      <span class="count" id="count">0 / 55</span>
+      <button class="btn" id="night" aria-pressed="false">밤 10시 이후</button>
+      <button class="btn" id="reset">비우기</button>
+    </div>
+    <div class="legend"><span><i style="background:var(--c)"></i>흔함 · 집에 거의 있음</span><span><i style="background:var(--u)"></i>보통</span><span><i style="background:var(--r)"></i>희귀 · 다른 집에 가야 함</span><span><i style="background:var(--l)"></i>전설 · 여행지에서만</span><span>칸을 누르면 잡힙니다. 세트를 다 채우면 표시가 붙습니다.</span></div>
+    <div id="sets"></div>
+  </section>
+
+  <section>
+    <h2>장치 9개가 도깨비 도감에서 작동하는 방식</h2>
+    <div class="bench"><table>
+      <thead><tr><th>장치</th><th>도깨비 도감 적용</th><th>앱에서 바뀌는 것</th></tr></thead>
+      <tbody>
+        <tr><td>빈칸 도감</td><td>55칸 실루엣. 잡기 전엔 이름도 "???"</td><td>도감 패널을 6칸에서 55칸 세트 그리드로</td></tr>
+        <tr><td>희귀도</td><td>물체가 집에 얼마나 흔한지로 등급. 드라이어·스키·서핑보드는 전설</td><td>클래스별 등급표 1개</td></tr>
+        <tr><td>물체 연동</td><td>종 = 인식 클래스. 컵 뒤엔 반드시 컵쟁이</td><td>스캔에서 고른 물체 라벨이 곧 종 id</td></tr>
+        <tr><td>시간 한정</td><td>밤 10시~새벽 5시엔 밤 도깨비(색·눈 반전)가 나옴</td><td>수집 시각으로 변형 저장</td></tr>
+        <tr><td>세트 보너스</td><td>부엌·거실·책상·먹거리·외출·욕실·운동·인형 8세트. 세트 완성 시 방 배지</td><td>세트 완성 연출 1개</td></tr>
+        <tr><td>성장</td><td>같은 물건을 3번·10번 만나면 코스튬이 커진다(뿔 1개 → 2개)</td><td>종별 만남 횟수 저장</td></tr>
+        <tr><td>하나의 몸</td><td>베이스 캐릭터 1 + 코스튬 55. 앞서 만든 5안 중 하나를 몸으로</td><td>drawCharacter에 코스튬 레이어 추가</td></tr>
+        <tr><td>알림 없음</td><td>그대로. 열어서 비춰야 안다</td><td>변경 없음</td></tr>
+        <tr><td>자랑</td><td>셔터 사진에 도깨비 이름·등급 스탬프</td><td>셔터 합성에 텍스트 1줄</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <footer class="notes">
+    <section>
+      <h3>고르면 다음에 하는 것</h3>
+      <ol>
+        <li>베이스 몸 확정(두둥·홀 등). 코스튬 55개는 물체 이모지·실루엣에서 출발해 10개씩 그린다.</li>
+        <li><code>SPRITES</code> 6색을 종 55개로 교체하고 <code>collection</code>을 라벨 기준으로 저장.</li>
+        <li>도감 패널을 세트 그리드로, 셔터에 이름 스탬프.</li>
+      </ol>
+    </section>
+    <section>
+      <h3>근거</h3>
+      <ul>
+        <li><a href="https://encykorea.aks.ac.kr/Article/E0015527">한국민족문화대백과 · 도깨비</a>: 빗자루·부지깽이·절굿공이 등 손때 묻은 물건이 도깨비가 된다</li>
+        <li><a href="https://yokai.jp/en/yokai/tsukumogami">yokai.jp · 츠쿠모가미</a>: 100년 쓴 물건에 혼이 깃든다</li>
+        <li><a href="https://www.pikminwiki.com/Decor_Pikmin">Pikipedia · 데코 피크민</a>: 장소 유형 41종 코스튬</li>
+        <li><a href="https://alexiamandeville.medium.com/game-design-breakdown-the-simplicity-of-neko-atsume-a8616a937a47">네코아츠메 디자인 분석</a> · <a href="https://ko.wikipedia.org/wiki/%EB%84%A4%EC%BD%94%EC%95%84%EC%B8%A0%EB%A9%94">위키백과</a></li>
+        <li><a href="https://www.crispystory.com/2026/03/NewStickerSeasonFIFTH.html">포켓몬빵 시즌5 띠부씰 150종</a> · <a href="https://namu.wiki/w/%EB%9D%A0%EB%B6%80%EC%94%B0">띠부씰</a></li>
+        <li><a href="https://www.the-pr.co.kr/news/articleView.html?idxno=54615">라부부·블라인드박스 소비자 조사</a></li>
+      </ul>
+    </section>
+    <section>
+      <h3>이름은 전부 가칭</h3>
+      <p>도감의 55개 이름은 방향을 보여주기 위한 초안입니다. 코스튬 이모지도 자리 표시용이며, 실제로는 베이스 캐릭터가 물건 조각을 쓴 그림으로 바뀝니다.</p>
+    </section>
+  </footer>
+</div>
+
+<script>
+(function () {
+  document.querySelectorAll('.dots').forEach((el) => { const n = +el.dataset.s; el.innerHTML = '●'.repeat(n) + '<span>' + '●'.repeat(5 - n) + '</span>'; });
+  const SETS = [["부엌", [["bottle", "병뚜껑이", "🍶", "C"], ["cup", "컵쟁이", "☕", "C"], ["bowl", "그릇 담뿍이", "🥣", "C"], ["spoon", "숟가락 푹푹이", "🥄", "C"], ["fork", "포크 콕콕이", "🍴", "C"], ["knife", "나이프 조심이", "🔪", "C"], ["wine glass", "잔찰랑이", "🍷", "U"], ["sink", "싱크대 첨벙이", "🚰", "U"], ["refrigerator", "냉장고 웅웅이", "🧊", "U"], ["microwave", "전자레인지 띵", "♨️", "U"], ["oven", "오븐 뜨끈이", "🔥", "R"], ["toaster", "토스터 튀어깨비", "🍞", "R"]]], ["거실", [["chair", "의자 앉아깨비", "🪑", "C"], ["couch", "소파 눌러앉이", "🛋️", "C"], ["tv", "티비 깜빡이", "📺", "C"], ["remote", "리모컨 어디갔니", "🎛️", "C"], ["clock", "시계 째깍이", "⏰", "C"], ["potted plant", "화분 새싹이", "🪴", "C"], ["book", "책갈피 낑깽이", "📕", "C"], ["vase", "꽃병 콸콸이", "🏺", "U"]]], ["책상", [["laptop", "노트북 타닥이", "💻", "C"], ["mouse", "마우스 딸깍이", "🖱️", "C"], ["keyboard", "키보드 두두두", "⌨️", "C"], ["cell phone", "폰 진동이", "📱", "C"], ["scissors", "가위 싹둑이", "✂️", "U"]]], ["먹거리", [["banana", "바나나 미끌이", "🍌", "U"], ["apple", "사과 발그레", "🍎", "U"], ["orange", "귤까기", "🍊", "U"], ["sandwich", "샌드 겹겹이", "🥪", "U"], ["pizza", "피자 한조각", "🍕", "U"], ["donut", "도넛 구멍이", "🍩", "U"], ["cake", "케이크 초", "🍰", "U"], ["hot dog", "핫도그 길쭉이", "🌭", "R"], ["broccoli", "브로콜리 숲", "🥦", "R"], ["carrot", "당근 쫑긋", "🥕", "R"]]], ["외출", [["backpack", "가방메기", "🎒", "U"], ["handbag", "핸드백 손님", "👜", "U"], ["umbrella", "우산깨비", "☂️", "U"], ["suitcase", "캐리어 여행꾼", "🧳", "U"], ["tie", "넥타이 사원", "👔", "R"], ["bench", "벤치 궁둥이", "🪵", "R"]]], ["욕실", [["toothbrush", "칫솔 치카", "🪥", "U"], ["toilet", "변기 물내림이", "🚽", "R"], ["hair drier", "드라이어 휘잉", "💨", "L"]]], ["운동", [["sports ball", "공퉁이", "⚽", "U"], ["frisbee", "원반돌이", "🥏", "R"], ["tennis racket", "라켓 통통이", "🎾", "R"], ["baseball glove", "글러브 손", "🧤", "R"], ["baseball bat", "방망깨비", "⚾", "R"], ["kite", "연날이", "🪁", "R"], ["skateboard", "보드 굴러깨비", "🛹", "R"], ["skis", "스키 미끌이", "🎿", "L"], ["snowboard", "보드 붕붕이", "🏂", "L"], ["surfboard", "파도 타깨비", "🏄", "L"]]], ["인형", [["teddy bear", "곰인형 폭신이", "🧸", "U"]]]];
+  const RN = { C: '흔함', U: '보통', R: '희귀', L: '전설' };
+  const got = new Set(['cup', 'laptop', 'chair']); // 처음 세 개는 잡아둔 상태
+  const root = document.getElementById('sets');
+  const svg = '<svg viewBox="0 0 64 64" aria-hidden="true"><path class="body" d="M32 8c-3 0-5 3-4 6-9 2-16 10-16 20 0 13 9 22 20 22s20-9 20-22c0-10-7-18-16-20 1-3-1-6-4-6z"/><g class="face"><circle class="eye" cx="24" cy="34" r="2.6" fill="#3B322C"/><circle class="eye" cx="40" cy="34" r="2.6" fill="#3B322C"/><ellipse cx="18" cy="40" rx="4" ry="2.4" fill="#F6A6AE"/><ellipse cx="46" cy="40" rx="4" ry="2.4" fill="#F6A6AE"/><path d="M29 42q3 3 6 0" stroke="#3B322C" stroke-width="1.6" fill="none" stroke-linecap="round"/></g></svg>';
+  for (const [title, items] of SETS) {
+    const set = document.createElement('div'); set.className = 'set'; set.dataset.set = title;
+    set.innerHTML = `<div class="set-title">${title}<small></small></div><div class="slots"></div>`;
+    const slots = set.querySelector('.slots');
+    for (const [id, name, hat, r] of items) {
+      const s = document.createElement('button'); s.className = 'slot'; s.dataset.id = id; s.dataset.r = r; s.type = 'button';
+      s.setAttribute('aria-label', `${name} (${RN[r]})`);
+      s.innerHTML = `<i class="rar"></i><div class="art"><span class="hat">${hat}</span>${svg}</div><div class="nm"></div><div class="en">${id}</div>`;
+      s.addEventListener('click', () => { if (got.has(id)) got.delete(id); else { got.add(id); s.classList.remove('new'); void s.offsetWidth; s.classList.add('new'); } render(); });
+      slots.appendChild(s);
+    }
+    root.appendChild(set);
+  }
+  function render() {
+    let total = 0;
+    for (const set of root.children) {
+      let n = 0, all = 0;
+      for (const s of set.querySelectorAll('.slot')) {
+        all++;
+        const has = got.has(s.dataset.id); s.classList.toggle('got', has);
+        const item = SETS.flatMap((x) => x[1]).find((x) => x[0] === s.dataset.id);
+        s.querySelector('.nm').textContent = has ? item[1] : `??? · ${RN[s.dataset.r]}`;
+        if (has) n++;
+      }
+      total += n;
+      set.querySelector('.set-title small').innerHTML = `${n} / ${all}` + (n === all ? ' <span class="done">세트 완성</span>' : '');
+    }
+    document.getElementById('count').textContent = `${total} / 55`;
+    document.getElementById('bar').style.width = (total / 55 * 100) + '%';
+  }
+  render();
+  document.getElementById('reset').addEventListener('click', () => { got.clear(); render(); });
+  const night = document.getElementById('night');
+  night.addEventListener('click', () => { const on = night.getAttribute('aria-pressed') !== 'true'; night.setAttribute('aria-pressed', String(on)); document.getElementById('dex').classList.toggle('night', on); });
+})();
+</script>
+
+</body>
+</html>
