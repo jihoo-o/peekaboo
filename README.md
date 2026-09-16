@@ -73,6 +73,8 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 
 `docs/preview/ip-lab.html` looks at the other route: licensing an existing branded roster instead of inventing one. It compares 13 IPs (Catch! Teenieping, Sanrio, Shinbi Apartment, Chiikawa, Zanmang Loopy, Broken Bear, Cookie Run, MapleStory, Squishmallows, Smiski, Pokémon, Yo-kai Watch, Pop Mart) on roster size, fit with the hide-and-appear mechanic, MZ taste, app-licensing precedent and feasibility, lists the contact routes, explains MG and running-royalty terms, and includes a proposal email draft. No IP artwork is included.
 
+`docs/preview/chiikawa-lab.html` is the proposal package for the chosen IP, Chiikawa (먼작귀): the rights map (Nagano, Spiral Cute as licensing manager, Daewon Media as the Korean window, Applibot's Chiikawa Pocket as the app precedent), three approach routes ranked by feasibility (a Korea-only in-store web AR promotion first), a Chiikawa-style dex design, a timeline, and proposal drafts in Korean for Daewon Media and in Japanese for Spiral Cute. No IP artwork.
+
 ## Not yet verified on a phone
 
 - Detection / segmentation Hz, heat, and mask flicker on real Android Chrome (if flicker is bad, set `MASK_EMA` in `app.js` to 0.7).

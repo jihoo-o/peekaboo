@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+</head>
+<body style="margin:0">
+<title>먼작귀 제안 패키지</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Sans+JP:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #F4F1EA; --card: #FFFFFF; --view: #FAF8F2; --ink: #2B2620; --ink-2: #6F675C; --line: #E3DDD2;
+    --accent: #F5C842; --accent-ink: #3C2A00; --hi: #2E8B57; --mid: #C7791B; --lo: #C23B3B; --focus: #2F6FE4; --node: #FFF3C4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1A1815; --card: #24211D; --view: #2C2823; --ink: #F3EFE8; --ink-2: #ABA396; --line: #3A352E;
+      --accent: #F5C842; --accent-ink: #3C2A00; --hi: #5FCB8A; --mid: #F0A64A; --lo: #F07070; --focus: #7FA6F5; --node: #3F3720;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1A1815; --card: #24211D; --view: #2C2823; --ink: #F3EFE8; --ink-2: #ABA396; --line: #3A352E;
+    --accent: #F5C842; --accent-ink: #3C2A00; --hi: #5FCB8A; --mid: #F0A64A; --lo: #F07070; --focus: #7FA6F5; --node: #3F3720;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif; font-size: 15px; line-height: 1.6; padding-inline: 16px; padding-block: 20px 40px; }
+  .wrap { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+  h1, h2, h3, .node b, .route b, .card b.t, .grp b { font-family: "Jua", "Noto Sans KR", system-ui, sans-serif; font-weight: 400; }
+  h1 { font-size: clamp(26px, 3.6vw, 36px); line-height: 1.15; margin: 0; text-wrap: balance; }
+  h1 em { font-style: normal; background: var(--accent); color: var(--accent-ink); padding: 0 8px; border-radius: 10px; }
+  .top p { margin: 6px 0 0; color: var(--ink-2); max-width: 68ch; }
+  h2 { font-size: 21px; margin: 0 0 4px; }
+  .sub { margin: 0 0 10px; color: var(--ink-2); font-size: 14px; max-width: 84ch; }
+  .verdict { background: var(--card); border: 1px solid var(--line); border-left: 6px solid var(--accent); border-radius: 16px; padding: 14px 18px; }
+  .verdict b { font-size: 18px; display: block; margin-bottom: 4px; font-family: "Jua", "Noto Sans KR", system-ui, sans-serif; font-weight: 400; }
+  .verdict p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  /* 권리 지도 */
+  .map { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .node { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; font-size: 13px; color: var(--ink-2); position: relative; }
+  .node.key { background: var(--node); border-color: var(--accent); }
+  .node b { display: block; font-size: 16px; color: var(--ink); }
+  .node span { display: block; margin-top: 4px; font-size: 12px; }
+  .node .role { color: var(--ink); font-weight: 500; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; font-size: 13.5px; color: var(--ink-2); }
+  .card b.t { display: block; font-size: 17px; color: var(--ink); margin-bottom: 4px; }
+  .card ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 3px; }
+  .card .lv { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); margin-bottom: 6px; }
+  .lv.g { color: var(--hi); } .lv.m { color: var(--mid); } .lv.b { color: var(--lo); }
+  .route { border-left: 4px solid var(--accent); }
+  /* 도감 */
+  .dex { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .grp b { font-size: 15px; display: block; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .chip { background: var(--view); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 12.5px; }
+  .chip small { color: var(--ink-2); margin-left: 4px; }
+  .bench { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 13px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  th, td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--view); color: var(--ink-2); font-weight: 500; font-size: 12px; letter-spacing: .04em; border-top: 0; }
+  td:first-child { font-weight: 500; white-space: nowrap; }
+  .mail { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; font-size: 14px; white-space: pre-wrap; line-height: 1.7; }
+  .mail.jp { font-family: "Noto Sans JP", "Noto Sans KR", system-ui, sans-serif; }
+  .timeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+  .tl { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; font-size: 13px; color: var(--ink-2); }
+  .tl b { display: block; color: var(--ink); font-weight: 500; }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .notes section { border-top: 3px solid var(--accent); padding-top: 10px; }
+  .notes h3 { font-size: 15px; margin: 0 0 6px; }
+  .notes p, .notes li { color: var(--ink-2); font-size: 14px; margin: 0; }
+  .notes ul, .notes ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+  .notes a, td a { color: inherit; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>먼작귀(치이카와) × Peekaboo <em>제안 패키지</em></h1>
+    <p>먼작귀로 정했으니, 누구에게 무엇을 어떤 순서로 제안해야 하는지를 한 장으로 정리했습니다. 권리 구조, 게임·앱 선례, 먼작귀식 도감 설계, 현실적인 접근 경로 3개, 준비물과 일정, 바로 보낼 수 있는 제안서 초안까지입니다. 이 페이지에는 먼작귀 이미지가 없습니다. 라이선스 전에는 제안서와 데모에도 공식 그림을 쓰면 안 됩니다.</p>
+  </header>
+
+  <div class="verdict"><b>결론: 첫 문은 대원미디어, 형태는 "한국 한정 AR 포토 이벤트"</b><p>먼작귀의 라이선스는 일본 스파이럴큐트가 엄격하게 관리하고, 첫 공식 앱 '치이카와 포켓'은 사이버에이전트 자회사 어플리봇이 2025년 3월 43개국(한국 포함)에 냈습니다. 인디 팀이 정식 앱 라이선스를 바로 받는 건 어렵습니다. 대신 한국 창구인 대원미디어가 치이카와샵 용산점, 팝업, LG트윈스 콜라보처럼 한국 오리지널 기획을 활발히 하므로, 매장·팝업 안에서 "물건 뒤에 숨은 먼작귀를 찾는" 기간 한정 웹 AR 이벤트를 프로모션 라이선스로 제안하는 것이 가장 현실적입니다. 거기서 지표를 만든 뒤 앱 라이선스로 확장합니다.</p></div>
+
+  <section>
+    <h2>권리 지도</h2>
+    <p class="sub">저작권 표기는 "©nagano / chiikawa committee"입니다. 출판사 고단샤는 출판권만 갖고, 상품·미디어 등 2차 이용은 스파이럴큐트가 창구입니다.</p>
+    <div class="map">
+      <div class="node"><b>나가노 (작가)</b><span class="role">원저작자</span><span>2020년 X(트위터) 연재로 시작. 2024 일본캐릭터대상 그랑프리.</span></div>
+      <div class="node key"><b>스파이럴큐트</b><span class="role">라이선스 관리 (2020~)</span><span>기획·상품 개발·이벤트까지 원스톱. 모후산드·코우펜짱도 관리. 해외는 스파이럴큐트 인터내셔널이 시장별 에이전트 지정(영국 Jazwares 등 7개 시장).</span></div>
+      <div class="node key"><b>대원미디어</b><span class="role">한국 창구</span><span>공식 IP 플랫폼 팝콘D플레이 운영. 치이카와샵 용산점(2026), 먼작귀×농담곰 '나가노마켓' 팝업(2025), LG트윈스 콜라보(2026.3), 한국 오리지널 한복 마스코트.</span></div>
+      <div class="node"><b>어플리봇 (사이버에이전트)</b><span class="role">게임·앱 선례</span><span>'치이카와 포켓' 2025.3.27 출시, 43개국, 사전등록 200만. 2026.1부터 게임 굿즈 판매.</span></div>
+      <div class="node"><b>고단샤</b><span class="role">출판권만</span><span>단행본. 2차 이용 창구 아님.</span></div>
+      <div class="node"><b>인게임 콜라보 선례</b><span class="role">참고</span><span>2022 Cygames 섀도우버스 콜라보. 게임 안에 먼작귀가 들어간 첫 사례.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>접근 경로 3개</h2>
+    <p class="sub">현실성은 제 판단입니다. A에서 시작해 C로 가는 순서를 권합니다.</p>
+    <div class="cards">
+      <div class="card route"><span class="lv g">현실성 중상</span><b class="t">A. 대원미디어 · 한국 한정 AR 포토 이벤트</b><ul><li>치이카와샵 용산점 또는 팝업 안에서 4~8주 운영하는 웹 AR. 앱 설치 없이 QR로 실행.</li><li>매장 물건(컵, 인형, 책) 뒤에서 캐릭터가 빼꼼 나오고, 사진 찍어 공유. 도감 스탬프 완성 시 굿즈 쿠폰.</li><li>프로모션 라이선스라 MG가 작고 승인도 빠름. 대원 입장에선 매장 체류·SNS 노출이 이득.</li><li>여기서 나온 참여·공유 지표가 B, C의 근거.</li></ul></div>
+      <div class="card route"><span class="lv m">현실성 중</span><b class="t">B. 스파이럴큐트 · 공식 앱 기능 파트너</b><ul><li>'치이카와 포켓'이나 공식 채널에 붙는 "AR 숨바꼭질" 기능을 기술 파트너로 제안.</li><li>우리는 캐릭터 라이선시가 아니라 개발 파트너가 되므로 권리 문제가 단순.</li><li>어플리봇과의 조율이 필요해 시간이 걸림. A의 지표가 있어야 검토됨.</li></ul></div>
+      <div class="card route"><span class="lv b">현실성 하 → 지표 후 중</span><b class="t">C. 정식 앱 라이선스</b><ul><li>Peekaboo 자체를 먼작귀 앱으로. 비독점·한국·1년으로 시작.</li><li>스파이럴큐트가 "게임" 카테고리로 보면 어플리봇과 충돌. "AR 포토·굿즈 경험"으로 포지셔닝해야 함.</li><li>A와 B 없이 바로 가면 답이 안 옵니다.</li></ul></div>
+    </div>
+  </section>
+
+  <section class="dex">
+    <h2>먼작귀식 도감 설계</h2>
+    <p class="sub">원작에서 캐릭터 이름은 작중에 거의 언급되지 않고, 한국 정식판은 하치와레를 '가르마', 우사기를 '토끼'로 옮겼습니다(팬들은 원어명 선호). 아래 목록은 팬 위키 기준 초안이라 라이선스 시 공식 캐릭터 시트로 교체합니다.</p>
+    <div class="grp"><b>주역 3</b><div class="chips"><span class="chip">치이카와</span><span class="chip">하치와레<small>가르마</small></span><span class="chip">우사기<small>토끼</small></span></div></div>
+    <div class="grp"><b>먼작귀족·친구들</b><div class="chips"><span class="chip">모몽가</span><span class="chip">쿠리만쥬</span><span class="chip">시사</span><span class="chip">랏코</span><span class="chip">후타바</span><span class="chip">앙코</span><span class="chip">카니</span><span class="chip">파자마 파티즈</span><span class="chip">세이렌</span></div></div>
+    <div class="grp"><b>갑옷 씨들</b><div class="chips"><span class="chip">라면 가게 갑옷</span><span class="chip">안내소 갑옷</span><span class="chip">풀뽑기 검정 갑옷</span><span class="chip">그 외 다수</span></div></div>
+    <div class="grp"><b>토벌 대상·수수께끼 생물</b><div class="chips"><span class="chip">토벌 몬스터 다수</span><span class="chip">심야 한정 = 시크릿 후보</span></div></div>
+    <div class="bench"><table>
+      <thead><tr><th>수집 장치</th><th>먼작귀 적용</th><th>Peekaboo에서</th></tr></thead>
+      <tbody>
+        <tr><td>빈칸 도감</td><td>캐릭터 15~20 × 상황 카드 3(기본·울먹·잠옷 등) = 45~60칸</td><td>도감 패널 그리드, 실루엣은 자체 제작 금지 → 공식 실루엣 승인 필요</td></tr>
+        <tr><td>물체 연동</td><td>먼작귀 세계의 물건과 매칭: 컵→라면 그릇 근처 갑옷, 책→안내소, 화분→풀뽑기</td><td>인식 라벨별 등장 캐릭터 표</td></tr>
+        <tr><td>희귀도</td><td>등장 빈도 기준. 주역 흔함, 세이렌·토벌 몬스터 희귀</td><td>클래스별 등급표</td></tr>
+        <tr><td>시간 한정</td><td>심야 시크릿, 팝업 기간 한정 캐릭터</td><td>수집 시각 저장</td></tr>
+        <tr><td>세트</td><td>주역 세트, 갑옷 세트, 파자마 세트</td><td>세트 완성 연출 + 굿즈 쿠폰(경로 A)</td></tr>
+        <tr><td>표정</td><td>공식 표정 시트 안에서만. 우리가 만든 "하찮은 표정" 파츠는 사용 불가</td><td>표정 파츠 코드는 자체 캐릭터용으로 남김</td></tr>
+        <tr><td>자랑</td><td>셔터 사진 + 캐릭터 스탬프 + 해시태그</td><td>공유 범위를 계약서에 명시</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>준비물과 일정</h2>
+    <div class="timeline">
+      <div class="tl"><b>1~2주</b>스킨 슬롯 구조로 앱 정리. 자체 캐릭터로 데모 완성. 30초 시연 영상.</div>
+      <div class="tl"><b>2~3주</b>원페이저(컨셉·매장 동선·지표 계획·사용 범위). 대원미디어 라이선스 담당에 제안.</div>
+      <div class="tl"><b>4~8주</b>미팅 → 프로모션 조건 협의 → 디자인 사전승인(공식 에셋 수령).</div>
+      <div class="tl"><b>9~16주</b>이벤트 운영 4~8주. 참여·공유·도감 완성률 수집.</div>
+      <div class="tl"><b>그 후</b>지표로 스파이럴큐트에 B 또는 C 제안.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>제안서 초안 · 대원미디어 (한국어)</h2>
+    <div class="mail"><b>제목: [제안] 치이카와샵·팝업용 웹 AR 숨바꼭질 이벤트 "물건 뒤에 먼작귀가 있어요"</b>
+
+안녕하세요, Peekaboo를 만들고 있는 [이름]입니다.
+
+Peekaboo는 앱 설치 없이 QR로 여는 웹 AR입니다. 스마트폰으로 매장을 비추면 진열된 물건(컵, 인형, 책 등 55종 인식) 뒤에서 캐릭터가 빼꼼 나타나고, 탭하면 도감에 모이며, 사진을 찍어 공유할 수 있습니다.
+
+"먼가 작고 귀여운 녀석이 숨어 있다"는 먼작귀의 정체성과 맞아, 치이카와샵 용산점 또는 다음 팝업에서 [4]주간 운영하는 기간 한정 이벤트로 제안드립니다.
+
+· 고객 경험: 매장 안 [12]곳의 물건 뒤에 각각 다른 먼작귀가 숨음 → 도감 스탬프 [12]칸 완성 시 굿즈 쿠폰
+· 대원미디어 이득: 매장 체류 시간, SNS 인증(해시태그 자동 삽입), 방문 데이터
+· 사용 범위: 이벤트 기간 한정, 앱 내 표시·도감·사용자 합성 사진 공유. 모든 화면 사전승인
+· 조건: 프로모션 라이선스(협의). 개발·운영은 저희가 부담
+· 현재 상태: 자체 캐릭터로 동작하는 데모(링크), 30초 시연 영상 첨부
+
+15분 시연 미팅을 요청드립니다.
+
+[이름] · [연락처] · [데모 링크]</div>
+  </section>
+
+  <section>
+    <h2>요약 · 스파이럴큐트 (일본어, 경로 B·C용)</h2>
+    <div class="mail jp"><b>件名：【ご提案】ちいかわ × スマホカメラで「モノの後ろに隠れたちいかわを探す」Web AR体験</b>
+
+株式会社スパイラルキュート ライセンスご担当者様
+
+はじめまして。韓国でWeb ARアプリ「Peekaboo」を開発している[氏名]と申します。
+
+Peekabooはアプリのインストール不要で、スマホのカメラを部屋に向けると、コップや本などの物の後ろからキャラクターがひょっこり現れ、タップして図鑑に集め、写真を撮って共有できるサービスです（認識できる物体は55種類）。
+
+「なんか小さくてかわいいやつ」が身の回りに隠れている、というちいかわの世界観にそのまま重なると考え、ご相談させていただきたく存じます。
+
+・韓国では大元メディア様のショップ・ポップアップと連動した期間限定イベントとして実施し、[参加__人／共有__件／図鑑完成率__%]の実績があります。
+・ゲームではなく「ARフォト・グッズ体験」として、『ちいかわぽけっと』と競合しない形を想定しています。
+・すべての画面は事前承認をいただき、公式素材のみを使用します。
+
+30秒のデモ動画と資料を添付いたします。ご検討のほど、よろしくお願いいたします。
+
+[氏名]・[連絡先]・[デモURL]</div>
+  </section>
+
+  <footer class="notes">
+    <section>
+      <h3>리스크와 대응</h3>
+      <ul>
+        <li><b style="font-weight:500;color:var(--ink)">스타일 가이드</b>: 표정·포즈 임의 제작 불가. 우리가 만든 표정 파츠는 자체 캐릭터용으로만. 공식 에셋(2D)을 받는 걸 전제로 앱은 2D 스프라이트 경로로.</li>
+        <li><b style="font-weight:500;color:var(--ink)">치이카와 포켓과의 충돌</b>: "게임"이라는 단어를 제안서에서 빼고 AR 포토·매장 경험으로 포지셔닝.</li>
+        <li><b style="font-weight:500;color:var(--ink)">인기 정점의 조건</b>: MG가 높을 수 있음. 프로모션 라이선스로 작게 시작해 비독점·기간 한정으로.</li>
+        <li><b style="font-weight:500;color:var(--ink)">팬메이드 리스크</b>: 데모에 먼작귀 그림·실루엣을 넣으면 제안 자체가 거절 사유. 자체 캐릭터 '홀'로 데모.</li>
+      </ul>
+    </section>
+    <section>
+      <h3>근거</h3>
+      <ul>
+        <li><a href="https://note.com/keke_ent/n/n2863cfd2df92">스파이럴큐트 분석(note)</a> · <a href="https://ja.wikipedia.org/wiki/%E3%82%B9%E3%83%91%E3%82%A4%E3%83%A9%E3%83%AB%E3%82%AD%E3%83%A5%E3%83%BC%E3%83%88">스파이럴큐트(위키)</a> · <a href="https://www.itmedia.co.jp/business/articles/2312/21/news032.html">먼작귀 라이선스 비즈니스 구조(ITmedia)</a></li>
+        <li><a href="https://www.licenseglobal.com/character/spiralcute-international-names-licensing-agents-in-seven-markets-for-chiikawa-mofusand-and-koupen-chan">스파이럴큐트 인터내셔널 에이전트 7개 시장</a> · <a href="https://www.jazwares.com/newsroom/spiralcute-international-announces-master-toy-partnership-with-jazwares">Jazwares 마스터토이(아시아 제외)</a></li>
+        <li><a href="https://www.cyberagent.co.jp/news/detail/id=30609">치이카와 포켓 발표(사이버에이전트)</a> · <a href="https://prtimes.jp/main/html/rd/p/000000009.000156996.html">정식 서비스 43개국(어플리봇)</a> · <a href="https://animecorner.me/chiikawa-pocket-game-release/">글로벌 출시(Anime Corner)</a></li>
+        <li><a href="https://www.popcondplay.com/ip/news/7">팝콘D플레이 치이카와(대원미디어)</a> · <a href="https://heypop.kr/cabinet/108368/">대원미디어 팝업(heyPOP)</a> · <a href="https://inabooth.io/ko/ip/INB-CDE4-A23C">inabooth 먼작귀 IP</a></li>
+        <li><a href="https://namu.wiki/w/%EB%A8%BC%EC%9E%91%EA%B7%80">먼작귀(나무위키)</a> · <a href="https://www.content-tokyo.jp/hub/ja-jp/press/release/release_20240710.html">일본캐릭터대상 2024 그랑프리</a></li>
+      </ul>
+    </section>
+    <section>
+      <h3>한계</h3>
+      <ul>
+        <li>대원미디어가 "마스터 라이선시"인지 "에이전트"인지는 공식 문서로 확인하지 못했습니다. 첫 미팅에서 디지털·프로모션 권한 범위를 물어야 합니다.</li>
+        <li>캐릭터 목록은 팬 위키 기준이며 공식 한국어 표기와 다를 수 있습니다.</li>
+        <li>스파이럴큐트, 대원미디어, 위키 공식 페이지는 이 환경에서 열리지 않아 검색 요약으로 작성했습니다.</li>
+      </ul>
+    </section>
+  </footer>
+</div>
+
+</body>
+</html>
