@@ -25,3 +25,4 @@
 | [0019](0019-findability-hints-and-glow-ring.md) | 못 찾는 문제: 스캔 후보 4회 이상·본 횟수 가중 선택, 후보 목록·20초 뒤 라벨 힌트, 밝은 배경용 발광 링 |
 | [0020](0020-five-second-scan-and-edge-direction-hint.md) | 스캔 5초 동안 본 물체 중 선정, 자이로로 목표 방향 기억 → 화면 밖이면 상하좌우 엣지 발광 유도 |
 | [0021](0021-focus-on-character-after-appearance.md) | 등장 후 집중: 발광 15%로 감쇠, 스포트라이트 비네트, 캐릭터 불투명, 검출 박스는 ?debug=1만, 안내 문구 하단 |
+| [0022](0022-drawn-chiikawa-roster.md) | 실제 등장 캐릭터 기준 도감 14종으로 정정, 종별 캔버스 렌더러(drawSpecies). ADR-0018의 실루엣 원칙을 소유자 요청으로 뒤집음 |

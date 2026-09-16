@@ -9,6 +9,7 @@
 // S10: 큰 물체는 옆에서 등장(화면 위 여유 없을 때) + 한 번 맞춘 물체는 이후 즉시 등장
 // S11: 짠! 대신 스을쩍 — 물체에 완전히 가려진 위치에서 뒤뚱거리며 걸어 나오고, 중간에 한 번 움찔 물러난다
 // S12: 패럴랙스 — 평소엔 반쯤 숨어 있고, 폰을 옆·위로 움직이면(물체가 화면에서 치우치면) 뒤에 숨은 캐릭터가 더 드러난다
+// S17: 실제 등장 캐릭터 기준으로 도감 정정(14종)하고, 종마다 캔버스로 알아볼 수 있게 그린다(drawSpecies). ?skin=silhouette 이면 예전 실루엣
 // S16: 등장 후엔 캐릭터에 집중 — 발광은 사그라들고, 캐릭터 주변만 밝은 스포트라이트(나머지 어둡게), 캐릭터는 불투명, 검출 박스는 ?debug=1일 때만
 // S15: 타깃 못 잡는 문제 — 스캔은 딱 5초, 그동안 본 물체 중에서만 선정. 자이로로 물체 방향을 기억해 화면 밖이면 상하좌우 엣지 발광으로 카메라를 유도
 // S14: 못 찾는 문제 대응 — 스캔에서 충분히(4회↑) 본 물체만 후보, 본 횟수 가중 선택, 후보 목록·20초 뒤 라벨 힌트, 밝은 배경에서도 보이는 발광 링
@@ -64,21 +65,21 @@ const RARITY = {
 };
 const SETS = ['주역', '친구', '갑옷'];
 const SPECIES = [
-  { id: 'chiikawa',    name: '치이카와',        jp: 'ちいかわ',            group: '주역', rarity: 'C', color: '#F7F3EA', tone: '#F6B7C2', objects: ['cup', 'bowl', 'bottle', 'teddy bear', 'book', 'backpack', 'chair', 'handbag'] },
-  { id: 'hachiware',   name: '하치와레',        jp: 'ハチワレ',            group: '주역', rarity: 'C', color: '#F7F3EA', tone: '#9EC5EA', objects: ['book', 'laptop', 'keyboard', 'cell phone', 'remote', 'tv', 'scissors', 'mouse'] },
-  { id: 'usagi',       name: '우사기',          jp: 'うさぎ',              group: '주역', rarity: 'C', color: '#FBF5DE', tone: '#F5D26B', objects: ['potted plant', 'sports ball', 'frisbee', 'kite', 'banana', 'carrot', 'skateboard', 'umbrella'] },
-  { id: 'momonga',     name: '모몽가',          jp: 'モモンガ',            group: '친구', rarity: 'U', color: '#F0EEF8', tone: '#C9B6E8', objects: ['laptop', 'mouse', 'keyboard', 'tv', 'clock', 'vase'] },
-  { id: 'kurimanju',   name: '쿠리만쥬',        jp: 'くりまんじゅう',      group: '친구', rarity: 'U', color: '#F2E3C8', tone: '#C7955C', objects: ['bottle', 'wine glass', 'cup', 'couch', 'refrigerator', 'pizza', 'hot dog', 'sandwich'] },
-  { id: 'shisa',       name: '시사',            jp: 'シーサー',            group: '친구', rarity: 'U', color: '#FBE3D5', tone: '#F09A7A', objects: ['chair', 'bench', 'microwave', 'oven', 'toaster', 'donut', 'cake'] },
-  { id: 'futaba',      name: '후타바',          jp: 'ふたば',              group: '친구', rarity: 'U', color: '#EAF3E4', tone: '#7DBB6E', objects: ['potted plant', 'broccoli', 'apple', 'orange', 'vase'] },
-  { id: 'anko',        name: '앙코',            jp: 'あんこ',              group: '친구', rarity: 'U', color: '#EFE6EF', tone: '#8E6B93', objects: ['handbag', 'suitcase', 'umbrella', 'tie', 'cookie', 'cake', 'rice ball'] },
-  { id: 'rakko',       name: '랏코',            jp: 'ラッコ',              group: '친구', rarity: 'R', color: '#E9E1D3', tone: '#8C7A63', objects: ['knife', 'fork', 'spoon', 'sink', 'toothbrush', 'baseball bat', 'tennis racket', 'baseball glove'] },
-  { id: 'kani',        name: '카니',            jp: 'カニ',                group: '친구', rarity: 'R', color: '#FBDDD5', tone: '#E8705C', objects: ['sink', 'toilet', 'hair drier', 'surfboard', 'skis', 'snowboard'] },
-  { id: 'pajama',      name: '파자마 파티즈',   jp: 'パジャマパーティーズ', group: '친구', rarity: 'R', color: '#EEE9F7', tone: '#A9A0D6', objects: ['couch', 'teddy bear', 'clock', 'tv'] },
-  { id: 'seiren',      name: '세이렌',          jp: 'セイレーン',          group: '친구', rarity: 'L', color: '#DDEDF2', tone: '#4FA3B5', objects: [], night: true },
-  { id: 'yoroi_ramen', name: '라면 가게 갑옷',  jp: '鎧さん（ラーメン）',   group: '갑옷', rarity: 'R', color: '#DCDCE0', tone: '#6B6B75', objects: ['bowl', 'cup', 'spoon', 'fork', 'microwave', 'sink', 'bottle'] },
-  { id: 'yoroi_info',  name: '안내소 갑옷',     jp: '鎧さん（案内所）',     group: '갑옷', rarity: 'R', color: '#DCDCE0', tone: '#6B6B75', objects: ['book', 'laptop', 'clock', 'cell phone', 'backpack', 'suitcase'] },
-  { id: 'yoroi_kusa',  name: '풀뽑기 검정 갑옷', jp: '鎧さん（草むしり）',   group: '갑옷', rarity: 'R', color: '#DCDCE0', tone: '#6B6B75', objects: ['potted plant', 'scissors', 'broccoli', 'carrot', 'bench'] },
+  // S17: 원작·팬위키 기준 정리. objects = 이 종이 사는 물체(COCO 라벨). night 종은 22~05시에만.
+  { id: 'chiikawa',      name: '치이카와',      jp: 'ちいかわ',              group: '주역', rarity: 'C', color: '#FFFFFF', tone: '#F7B6C2', objects: ['cup', 'bowl', 'bottle', 'teddy bear', 'book', 'backpack', 'chair', 'handbag'] },
+  { id: 'hachiware',     name: '하치와레',      jp: 'ハチワレ',              group: '주역', rarity: 'C', color: '#FFFFFF', tone: '#7FB3E6', objects: ['book', 'laptop', 'keyboard', 'cell phone', 'remote', 'tv', 'scissors', 'mouse'] },
+  { id: 'usagi',         name: '우사기',        jp: 'うさぎ',                group: '주역', rarity: 'C', color: '#FFF2A8', tone: '#F5D26B', objects: ['potted plant', 'sports ball', 'frisbee', 'kite', 'banana', 'carrot', 'skateboard', 'umbrella'] },
+  { id: 'momonga',       name: '모몽가',        jp: 'モモンガ',              group: '친구', rarity: 'U', color: '#FFFFFF', tone: '#F4B8D0', objects: ['laptop', 'mouse', 'keyboard', 'tv', 'clock', 'vase'] },
+  { id: 'kurimanju',     name: '쿠리만쥬',      jp: 'くりまんじゅう',        group: '친구', rarity: 'U', color: '#F6E7B8', tone: '#8E5A2B', objects: ['bottle', 'wine glass', 'cup', 'couch', 'refrigerator', 'pizza', 'hot dog', 'sandwich'] },
+  { id: 'shisa',         name: '시사',          jp: 'シーサー',              group: '친구', rarity: 'U', color: '#F3C24B', tone: '#E8742C', objects: ['chair', 'bench', 'microwave', 'oven', 'toaster', 'donut', 'cake'] },
+  { id: 'rakko',         name: '랏코',          jp: 'ラッコ',                group: '친구', rarity: 'R', color: '#8B6A4E', tone: '#E9D9C3', objects: ['knife', 'fork', 'spoon', 'sink', 'toothbrush', 'baseball bat', 'tennis racket', 'baseball glove'] },
+  { id: 'furuhonya',     name: '헌책방(카니짱)', jp: '古本屋',                group: '친구', rarity: 'R', color: '#F6B7C6', tone: '#E07A93', objects: ['book', 'scissors', 'vase', 'clock', 'suitcase'] },
+  { id: 'dekatsuyo',     name: '데카츠요',      jp: 'でかつよ',              group: '친구', rarity: 'R', color: '#FFFFFF', tone: '#F7B6C2', objects: ['sports ball', 'baseball bat', 'skateboard', 'bench', 'chair', 'suitcase', 'surfboard'] },
+  { id: 'pajama',        name: '파자마 파티즈', jp: 'パジャマパーティーズ',  group: '친구', rarity: 'R', color: '#FFFFFF', tone: '#A9A0D6', objects: ['couch', 'teddy bear', 'clock', 'tv'] },
+  { id: 'seiren',        name: '세이렌',        jp: 'セイレーン',            group: '친구', rarity: 'L', color: '#F3EFE4', tone: '#5FB3C4', objects: [], night: true },
+  { id: 'yoroi_ramen',   name: '라면 가게 갑옷', jp: '鎧さん（ラーメン）',     group: '갑옷', rarity: 'R', color: '#F2C94C', tone: '#FFFFFF', objects: ['bowl', 'cup', 'spoon', 'fork', 'microwave', 'sink', 'bottle'] },
+  { id: 'yoroi_info',    name: '안내소 갑옷',   jp: '鎧さん（案内所）',       group: '갑옷', rarity: 'R', color: '#C9CDD6', tone: '#8A9099', objects: ['book', 'laptop', 'clock', 'cell phone', 'backpack', 'potted plant'] },
+  { id: 'yoroi_pochette', name: '포셰트 갑옷',  jp: '鎧さん（ポシェット）',   group: '갑옷', rarity: 'R', color: '#5B8DD9', tone: '#8B5E3C', objects: ['handbag', 'backpack', 'umbrella', 'suitcase', 'tie'] },
 ];
 const SPRITES = SPECIES; // 기존 호출부 유지
 const speciesById = (id) => SPECIES.find((s) => s.id === id);
@@ -134,6 +135,7 @@ const state = {
 };
 window.__peekaboo = state;
 state.placement = () => characterPlacement(performance.now()); // 디버그용
+state.drawCharacter = (...a) => drawCharacter(...a); state.SPECIES = SPECIES; // 디버그용(도감 시트 렌더)
 
 // ---- 유틸 ----
 function hz(times, now) {
@@ -603,7 +605,7 @@ function updateCharacter(now) {
     else { c.state = 'hide'; c.since = now; }
   }
   if (confirmed() && (c.state === 'hidden' || c.state === 'hide')) { // S7: 확정되면 충전 시작
-    c.sprite = pickSprite(); c.since = now; c.progress = 0;
+    c.sprite = pickSprite(); c.since = now; c.progress = 0; c.seed = Math.floor(Math.random() * 4); // S17: 파자마 멤버 색
     c.state = state.home?.solved ? 'peek' : 'charging'; // S10: 이미 맞춘 물체는 바로 짠!
   }
   const el = now - c.since;
@@ -659,9 +661,300 @@ function drawCandy(ctx, x, y, rr, color, t) {
 function drawCharacter(ctx, cx, cy, size, t, opts = {}) {
   const sp = opts.sprite;
   if (sp && skinImages[sp.id]) return drawSkin(ctx, skinImages[sp.id], cx, cy, size, t, opts);
-  if (sp) return drawPlaceholder(ctx, sp, cx, cy, size, t, opts);
+  if (sp) return params.get('skin') === 'silhouette' ? drawPlaceholder(ctx, sp, cx, cy, size, t, opts) : drawSpecies(ctx, sp, cx, cy, size, t, opts); // S17
   return drawSoot(ctx, cx, cy, size, t, opts);
 }
+
+// ---- S17: 종별 캔버스 드로잉 ----
+// 공통 기하: (cx, cy)=하단 중심, size=폭. 머리(몸통 겸) 원의 중심 = (cx, cy - r), r = size/2. 발은 바닥에.
+const INK = '#3B322C';
+function drawSpecies(ctx, sp, cx, cy, size, t, opts) {
+  const r = size / 2, hy = cy - r;
+  const blink = (t % 3400) < 110;
+  const wobble = (opts.waving ? Math.sin(t / 60) * 0.08 : 0) + (opts.tilt ?? 0);
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.translate(cx, hy); ctx.rotate(wobble); ctx.translate(-cx, -hy);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const lw = Math.max(2.5, size * 0.04);
+  const g = { ctx, cx, cy, hy, r, size, t, blink, lw, sp, opts };
+  const fn = SPECIES_DRAW[sp.id] ?? drawGenericChii;
+  fn(g);
+  drawBadges(ctx, cx, hy, r, size, t, opts);
+  ctx.restore();
+}
+// --- 부품 ---
+function body(g, color, rx = 1, ry = 0.98, dy = 0) { // 둥근 머리+몸통
+  const { ctx, cx, hy, r, lw } = g;
+  ctx.fillStyle = color; ctx.strokeStyle = INK; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.ellipse(cx, hy + r * dy, r * rx, r * ry, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+}
+function feet(g, color) { // 바닥에 닿는 작은 발 2개
+  const { ctx, cx, cy, r, lw } = g;
+  ctx.fillStyle = color; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.8;
+  for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(cx + sx * r * 0.42, cy - r * 0.08, r * 0.2, r * 0.12, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+}
+function arms(g, color, raise = 0) { // 짧은 팔. raise>0 이면 오른팔을 올림
+  const { ctx, cx, hy, r, lw } = g;
+  ctx.fillStyle = color; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.8;
+  ctx.beginPath(); ctx.ellipse(cx - r * 0.95, hy + r * 0.35, r * 0.2, r * 0.12, -0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(cx + r * 0.95, hy + r * 0.35 - raise * r * 0.9, r * 0.2, r * 0.12, 0.5 - raise * 1.3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+}
+function roundEars(g, color, inner) { // 치이카와: 작고 둥근 귀
+  const { ctx, cx, hy, r, lw } = g;
+  ctx.fillStyle = color; ctx.strokeStyle = INK; ctx.lineWidth = lw;
+  for (const sx of [-1, 1]) {
+    ctx.beginPath(); ctx.arc(cx + sx * r * 0.62, hy - r * 0.78, r * 0.26, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (inner) { ctx.fillStyle = inner; ctx.beginPath(); ctx.arc(cx + sx * r * 0.62, hy - r * 0.78, r * 0.13, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = color; }
+  }
+}
+function catEars(g, color) { // 하치와레: 세모 귀
+  const { ctx, cx, hy, r, lw } = g;
+  ctx.fillStyle = color; ctx.strokeStyle = INK; ctx.lineWidth = lw;
+  for (const sx of [-1, 1]) {
+    ctx.beginPath(); ctx.moveTo(cx + sx * r * 0.35, hy - r * 0.85); ctx.lineTo(cx + sx * r * 0.78, hy - r * 1.25); ctx.lineTo(cx + sx * r * 0.9, hy - r * 0.55); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+}
+function longEars(g, color, inner) { // 우사기: 길게 선 귀
+  const { ctx, cx, hy, r, lw } = g;
+  ctx.fillStyle = color; ctx.strokeStyle = INK; ctx.lineWidth = lw;
+  for (const sx of [-1, 1]) {
+    ctx.beginPath(); ctx.ellipse(cx + sx * r * 0.45, hy - r * 1.35, r * 0.2, r * 0.62, sx * 0.12, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = inner; ctx.beginPath(); ctx.ellipse(cx + sx * r * 0.45, hy - r * 1.3, r * 0.09, r * 0.42, sx * 0.12, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = color;
+  }
+}
+function dotEyes(g, dx = 0.3, dy = -0.05, s = 0.07) {
+  const { ctx, cx, hy, r, blink } = g; ctx.fillStyle = INK;
+  for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(cx + sx * r * dx, hy + r * dy, r * s, blink ? r * 0.012 : r * s, 0, 0, Math.PI * 2); ctx.fill(); }
+}
+function bigEyes(g, lashes) { // 모몽가·세이렌: 큰 눈 + 하이라이트
+  const { ctx, cx, hy, r, blink, lw } = g;
+  for (const sx of [-1, 1]) {
+    const ex = cx + sx * r * 0.32, ey = hy - r * 0.05;
+    ctx.fillStyle = INK; ctx.beginPath(); ctx.ellipse(ex, ey, r * 0.17, blink ? r * 0.015 : r * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+    if (!blink) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex - r * 0.05, ey - r * 0.08, r * 0.06, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(ex + r * 0.05, ey + r * 0.06, r * 0.03, 0, Math.PI * 2); ctx.fill(); }
+    if (lashes) { ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.6; for (let i = 0; i < 3; i++) { const a = -Math.PI / 2 + sx * (0.25 + i * 0.35); ctx.beginPath(); ctx.moveTo(ex + Math.cos(a) * r * 0.18, ey + Math.sin(a) * r * 0.23); ctx.lineTo(ex + Math.cos(a) * r * 0.27, ey + Math.sin(a) * r * 0.33); ctx.stroke(); } }
+  }
+}
+function sleepyEyes(g) { // 쿠리만쥬·랏코: 반쯤 감은 눈
+  const { ctx, cx, hy, r, lw } = g; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.9;
+  for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx + sx * r * 0.2, hy - r * 0.02); ctx.lineTo(cx + sx * r * 0.42, hy - r * 0.02); ctx.stroke(); }
+}
+function narrowEyes(g) { // 시사: 가는 눈
+  const { ctx, cx, hy, r, lw } = g; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.9;
+  for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(cx + sx * r * 0.32, hy - r * 0.02, r * 0.11, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); }
+}
+function omegaMouth(g, dy = 0.22) { // ω 입
+  const { ctx, cx, hy, r, lw } = g; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.6;
+  ctx.beginPath(); ctx.arc(cx - r * 0.07, hy + r * dy, r * 0.07, 0, Math.PI); ctx.arc(cx + r * 0.07, hy + r * dy, r * 0.07, 0, Math.PI); ctx.stroke();
+}
+function openMouth(g, w = 0.28, h = 0.2, dy = 0.28, tooth = false) { // 활짝 벌린 입
+  const { ctx, cx, hy, r, lw } = g;
+  ctx.fillStyle = '#C9424B'; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.7;
+  ctx.beginPath(); ctx.ellipse(cx, hy + r * dy, r * w, r * h, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#F08A9B'; ctx.beginPath(); ctx.ellipse(cx, hy + r * (dy + h * 0.45), r * w * 0.6, r * h * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+  if (tooth) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.rect(cx - r * 0.05, hy + r * (dy - h * 0.95), r * 0.1, r * 0.1); ctx.fill(); }
+}
+function smileMouth(g) { // 하치와레: 활짝 웃는 입(위로 벌어진 반원 + 이빨)
+  const { ctx, cx, hy, r, lw } = g;
+  ctx.fillStyle = '#C9424B'; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.7;
+  ctx.beginPath(); ctx.arc(cx, hy + r * 0.2, r * 0.26, 0, Math.PI); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.rect(cx - r * 0.2, hy + r * 0.2, r * 0.4, r * 0.06); ctx.fill();
+}
+function cheeks(g, color, dy = 0.14) {
+  const { ctx, cx, hy, r } = g; ctx.fillStyle = color;
+  for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(cx + sx * r * 0.56, hy + r * dy, r * 0.15, r * 0.1, 0, 0, Math.PI * 2); ctx.fill(); }
+}
+function armorFace(g) { // 鎧さん 공통: 선글라스 같은 검은 눈 + 잇몸 드러난 입
+  const { ctx, cx, hy, r, lw } = g;
+  ctx.fillStyle = INK; ctx.beginPath(); ctx.roundRect(cx - r * 0.62, hy - r * 0.22, r * 1.24, r * 0.3, r * 0.08); ctx.fill();
+  ctx.fillStyle = '#E88A97'; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.7;
+  ctx.beginPath(); ctx.roundRect(cx - r * 0.45, hy + r * 0.22, r * 0.9, r * 0.36, r * 0.1); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.rect(cx - r * 0.4 + i * r * 0.16, hy + r * 0.25, r * 0.14, r * 0.14); ctx.fill(); }
+  ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.5;
+  for (let i = 1; i < 5; i++) { ctx.beginPath(); ctx.moveTo(cx - r * 0.4 + i * r * 0.16, hy + r * 0.25); ctx.lineTo(cx - r * 0.4 + i * r * 0.16, hy + r * 0.39); ctx.stroke(); }
+}
+function armorBody(g, color, dark) { // 鎧さん: 투구(둥근 머리) + 판금 라인
+  const { ctx, cx, hy, r, lw } = g;
+  body(g, color, 1, 1.02);
+  ctx.strokeStyle = dark; ctx.lineWidth = lw * 0.7;
+  ctx.beginPath(); ctx.moveTo(cx - r * 0.95, hy - r * 0.32); ctx.quadraticCurveTo(cx, hy - r * 0.55, cx + r * 0.95, hy - r * 0.32); ctx.stroke(); // 투구 챙
+  ctx.beginPath(); ctx.moveTo(cx - r * 0.98, hy + r * 0.62); ctx.quadraticCurveTo(cx, hy + r * 0.85, cx + r * 0.98, hy + r * 0.62); ctx.stroke(); // 턱받이
+  ctx.beginPath(); ctx.moveTo(cx, hy - r); ctx.lineTo(cx, hy - r * 0.5); ctx.stroke(); // 투구 능선
+}
+function tag(g, text) { // 이름표(선택)
+  const { ctx, cx, cy, r } = g;
+  ctx.font = `bold ${Math.max(10, r * 0.24)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tw = ctx.measureText(text).width + r * 0.4, th = r * 0.34, ty = cy + th * 0.7;
+  ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.beginPath(); ctx.roundRect(cx - tw / 2, ty - th / 2, tw, th, th / 2); ctx.fill();
+  ctx.fillStyle = INK; ctx.fillText(text, cx, ty + 1);
+}
+function drawGenericChii(g) { body(g, '#fff'); feet(g, '#fff'); dotEyes(g); omegaMouth(g); }
+
+const SPECIES_DRAW = {
+  // 치이카와: 흰 몸, 작고 둥근 귀, 점 눈, ω 입, 분홍 볼
+  chiikawa(g) {
+    roundEars(g, '#fff'); body(g, '#fff'); feet(g, '#fff'); arms(g, '#fff', g.opts.waving ? 1 : 0);
+    cheeks(g, '#F7B6C2'); dotEyes(g); omegaMouth(g);
+  },
+  // 하치와레: 흰 몸에 머리 윗부분이 파란 하치와레 무늬(이마에서 두 갈래로 갈라짐), 세모 귀, 활짝 웃는 입
+  hachiware(g) {
+    const { ctx, cx, hy, r } = g;
+    catEars(g, '#fff'); body(g, '#fff'); feet(g, '#fff'); arms(g, '#fff', g.opts.waving ? 1 : 0);
+    ctx.save(); ctx.beginPath(); ctx.ellipse(cx, hy, r, r * 0.98, 0, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = '#7FB3E6';
+    ctx.beginPath(); ctx.moveTo(cx - r * 1.1, hy - r * 1.1); ctx.lineTo(cx + r * 1.1, hy - r * 1.1);
+    ctx.lineTo(cx + r * 1.1, hy - r * 0.42); ctx.lineTo(cx + r * 0.42, hy - r * 0.42); ctx.lineTo(cx, hy - r * 0.05); // 이마의 흰 쐐기
+    ctx.lineTo(cx - r * 0.42, hy - r * 0.42); ctx.lineTo(cx - r * 1.1, hy - r * 0.42); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    // 귀 안쪽도 파랗게
+    ctx.fillStyle = '#7FB3E6';
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx + sx * r * 0.42, hy - r * 0.88); ctx.lineTo(cx + sx * r * 0.76, hy - r * 1.18); ctx.lineTo(cx + sx * r * 0.85, hy - r * 0.62); ctx.closePath(); ctx.fill(); }
+    cheeks(g, '#F7B6C2', 0.12); dotEyes(g, 0.3, -0.08); smileMouth(g);
+  },
+  // 우사기: 노란 몸, 길게 선 귀, 아주 작은 눈, 활짝 벌린 입("ウラ!")
+  usagi(g) {
+    longEars(g, '#FFF2A8', '#F9C5CC'); body(g, '#FFF2A8'); feet(g, '#FFF2A8'); arms(g, '#FFF2A8', 1);
+    dotEyes(g, 0.3, -0.12, 0.05); openMouth(g, 0.22, 0.2, 0.22);
+  },
+  // 모몽가: 흰 복슬 몸, 분홍빛 비막(양옆 날개), 큰 반짝 눈 + 속눈썹, 크고 복슬한 꼬리
+  momonga(g) {
+    const { ctx, cx, hy, r, lw } = g;
+    ctx.fillStyle = '#EED6E0'; ctx.strokeStyle = INK; ctx.lineWidth = lw; // 꼬리
+    ctx.beginPath(); ctx.ellipse(cx + r * 0.95, hy + r * 0.55, r * 0.55, r * 0.32, -0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#F4B8D0'; // 비막
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx + sx * r * 0.6, hy - r * 0.2); ctx.quadraticCurveTo(cx + sx * r * 1.35, hy + r * 0.1, cx + sx * r * 0.9, hy + r * 0.8); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    roundEars(g, '#fff', '#F4B8D0'); body(g, '#fff'); feet(g, '#fff');
+    cheeks(g, '#F7B6C2'); bigEyes(g, true); omegaMouth(g, 0.26);
+  },
+  // 쿠리만쥬: 연노랑 몸에 머리 위 둥근 갈색 무늬(밤만쥬), 반쯤 감은 무표정 눈, 술캔
+  kurimanju(g) {
+    const { ctx, cx, hy, r, lw } = g;
+    body(g, '#F6E7B8', 1, 0.95);
+    ctx.save(); ctx.beginPath(); ctx.ellipse(cx, hy, r, r * 0.95, 0, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = '#8E5A2B'; ctx.beginPath(); ctx.ellipse(cx, hy - r * 0.62, r * 0.72, r * 0.42, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    feet(g, '#F6E7B8'); arms(g, '#F6E7B8', 0);
+    sleepyEyes(g); ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.6; ctx.beginPath(); ctx.moveTo(cx - r * 0.1, hy + r * 0.25); ctx.lineTo(cx + r * 0.1, hy + r * 0.25); ctx.stroke(); // 一 입
+    ctx.fillStyle = '#F2C94C'; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.6; // 캔
+    ctx.beginPath(); ctx.roundRect(cx + r * 0.75, hy + r * 0.12, r * 0.28, r * 0.42, r * 0.05); ctx.fill(); ctx.stroke();
+  },
+  // 시사: 금빛 몸, 주황 갈기와 눈썹, 가는 눈, 입가의 작은 송곳니
+  shisa(g) {
+    const { ctx, cx, hy, r, lw } = g;
+    ctx.fillStyle = '#E8742C'; ctx.strokeStyle = INK; ctx.lineWidth = lw; // 갈기
+    for (let i = 0; i < 9; i++) { const a = Math.PI + (i / 8) * Math.PI; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r * 0.95, hy + Math.sin(a) * r * 0.95, r * 0.27, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    body(g, '#F3C24B'); feet(g, '#F3C24B'); arms(g, '#F3C24B', g.opts.waving ? 1 : 0);
+    ctx.strokeStyle = '#E8742C'; ctx.lineWidth = lw * 1.1; // 눈썹
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx + sx * r * 0.18, hy - r * 0.32); ctx.lineTo(cx + sx * r * 0.48, hy - r * 0.26); ctx.stroke(); }
+    narrowEyes(g); omegaMouth(g, 0.24);
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.5; // 송곳니
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx + sx * r * 0.16, hy + r * 0.26); ctx.lineTo(cx + sx * r * 0.2, hy + r * 0.4); ctx.lineTo(cx + sx * r * 0.26, hy + r * 0.26); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  },
+  // 랏코: 갈색 몸에 밝은 얼굴, 작은 둥근 귀, 반쯤 감은 냉정한 눈, 등에 검
+  rakko(g) {
+    const { ctx, cx, hy, r, lw } = g;
+    ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.9; ctx.fillStyle = '#C9CDD6'; // 검(등 뒤)
+    ctx.beginPath(); ctx.moveTo(cx + r * 0.55, hy + r * 0.9); ctx.lineTo(cx + r * 1.25, hy - r * 0.9); ctx.lineTo(cx + r * 1.35, hy - r * 0.8); ctx.lineTo(cx + r * 0.7, hy + r * 0.95); ctx.closePath(); ctx.fill(); ctx.stroke();
+    roundEars(g, '#8B6A4E'); body(g, '#8B6A4E'); feet(g, '#8B6A4E'); arms(g, '#8B6A4E', 0);
+    ctx.fillStyle = '#E9D9C3'; ctx.beginPath(); ctx.ellipse(cx, hy + r * 0.05, r * 0.72, r * 0.6, 0, 0, Math.PI * 2); ctx.fill(); // 밝은 얼굴
+    sleepyEyes(g); ctx.fillStyle = INK; ctx.beginPath(); ctx.ellipse(cx, hy + r * 0.2, r * 0.07, r * 0.05, 0, 0, Math.PI * 2); ctx.fill(); // 코
+    ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.5; ctx.beginPath(); ctx.moveTo(cx - r * 0.12, hy + r * 0.34); ctx.lineTo(cx + r * 0.12, hy + r * 0.34); ctx.stroke();
+  },
+  // 헌책방(카니짱): 분홍 게 모양 — 옆으로 넓은 몸, 눈자루 위의 눈, 집게, 안경 대신 책
+  furuhonya(g) {
+    const { ctx, cx, hy, r, lw } = g;
+    ctx.fillStyle = '#F6B7C6'; ctx.strokeStyle = INK; ctx.lineWidth = lw;
+    for (const sx of [-1, 1]) { // 집게
+      ctx.beginPath(); ctx.ellipse(cx + sx * r * 1.05, hy + r * 0.05, r * 0.3, r * 0.22, sx * 0.6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + sx * r * 1.05, hy - r * 0.05); ctx.lineTo(cx + sx * r * 1.3, hy - r * 0.3); ctx.stroke();
+      for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(cx + sx * r * (0.75 + i * 0.12), hy + r * 0.25); ctx.lineTo(cx + sx * r * (0.85 + i * 0.12), hy + r * 0.6); ctx.stroke(); } // 다리
+    }
+    body(g, '#F6B7C6', 1.05, 0.8, 0.1);
+    for (const sx of [-1, 1]) { // 눈자루
+      ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.8; ctx.beginPath(); ctx.moveTo(cx + sx * r * 0.3, hy - r * 0.6); ctx.lineTo(cx + sx * r * 0.32, hy - r * 1.0); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx + sx * r * 0.32, hy - r * 1.05, r * 0.14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(cx + sx * r * 0.32, hy - r * 1.05, r * 0.06, 0, Math.PI * 2); ctx.fill();
+    }
+    omegaMouth(g, 0.18);
+    ctx.fillStyle = '#E9D9C3'; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.6; // 책
+    ctx.beginPath(); ctx.roundRect(cx - r * 0.3, hy + r * 0.32, r * 0.6, r * 0.42, r * 0.04); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, hy + r * 0.32); ctx.lineTo(cx, hy + r * 0.74); ctx.stroke();
+  },
+  // 데카츠요: 치이카와족의 크고 강한 개체 — 흰 몸, 각진 눈, 이 드러낸 씩 웃음, 굵은 팔
+  dekatsuyo(g) {
+    const { ctx, cx, hy, r, lw } = g;
+    roundEars(g, '#fff'); body(g, '#fff', 1.05, 1.0); feet(g, '#fff');
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = INK; ctx.lineWidth = lw;
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(cx + sx * r * 1.0, hy + r * 0.35, r * 0.3, r * 0.2, sx * 0.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.9; // 각진 눈
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx + sx * r * 0.14, hy - r * 0.05); ctx.lineTo(cx + sx * r * 0.42, hy - r * 0.2); ctx.stroke(); ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(cx + sx * r * 0.3, hy - r * 0.02, r * 0.06, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.7; // 씩 웃는 입
+    ctx.beginPath(); ctx.moveTo(cx - r * 0.3, hy + r * 0.2); ctx.quadraticCurveTo(cx, hy + r * 0.5, cx + r * 0.3, hy + r * 0.2); ctx.closePath(); ctx.fill(); ctx.stroke();
+    for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo(cx - r * 0.3 + i * r * 0.15, hy + r * 0.2); ctx.lineTo(cx - r * 0.3 + i * r * 0.15, hy + r * 0.33); ctx.stroke(); }
+  },
+  // 파자마 파티즈: 파자마(줄무늬)와 나이트캡을 쓴 작은 치이카와족. 멤버 색은 등장마다 보라·분홍·초록·흰
+  pajama(g) {
+    const { ctx, cx, hy, r, lw, t } = g;
+    const cols = ['#A9A0D6', '#F4A6C0', '#8FD0A0', '#F3EFE4'];
+    const col = cols[Math.floor((g.opts.seed ?? 0) % 4)];
+    body(g, '#fff'); feet(g, '#fff'); arms(g, '#fff', g.opts.waving ? 1 : 0);
+    ctx.save(); ctx.beginPath(); ctx.ellipse(cx, hy, r, r * 0.98, 0, 0, Math.PI * 2); ctx.clip(); // 파자마(아래 절반)
+    ctx.fillStyle = col; ctx.fillRect(cx - r, hy + r * 0.35, r * 2, r);
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = lw * 0.6;
+    for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(cx + i * r * 0.28, hy + r * 0.35); ctx.lineTo(cx + i * r * 0.28, hy + r * 1.1); ctx.stroke(); }
+    ctx.restore();
+    ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.7; ctx.beginPath(); ctx.moveTo(cx - r, hy + r * 0.35); ctx.lineTo(cx + r, hy + r * 0.35); ctx.stroke();
+    ctx.fillStyle = col; ctx.strokeStyle = INK; ctx.lineWidth = lw; // 나이트캡
+    ctx.beginPath(); ctx.moveTo(cx - r * 0.75, hy - r * 0.62); ctx.quadraticCurveTo(cx, hy - r * 1.35, cx + r * 0.55, hy - r * 0.85); ctx.quadraticCurveTo(cx + r * 1.0, hy - r * 1.1, cx + r * 1.05, hy - r * 0.65); ctx.quadraticCurveTo(cx + r * 0.2, hy - r * 0.75, cx - r * 0.75, hy - r * 0.62); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx + r * 1.05, hy - r * 0.62, r * 0.14, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); // 방울
+    cheeks(g, '#F7B6C2'); dotEyes(g); omegaMouth(g);
+  },
+  // 세이렌: 상반신은 고양이 같은 얼굴(곤란한 눈썹·큰 눈·고양이 입), 하반신은 물고기 꼬리
+  seiren(g) {
+    const { ctx, cx, hy, cy, r, lw } = g;
+    ctx.fillStyle = '#5FB3C4'; ctx.strokeStyle = INK; ctx.lineWidth = lw; // 꼬리
+    ctx.beginPath(); ctx.moveTo(cx - r * 0.6, hy + r * 0.6); ctx.quadraticCurveTo(cx - r * 0.2, cy + r * 0.1, cx - r * 0.9, cy + r * 0.05);
+    ctx.lineTo(cx - r * 0.55, cy - r * 0.15); ctx.lineTo(cx - r * 0.95, cy - r * 0.4); ctx.quadraticCurveTo(cx, cy - r * 0.25, cx + r * 0.6, hy + r * 0.6); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = lw * 0.5;
+    for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(cx - r * 0.1 - i * r * 0.2, hy + r * 0.85 + i * r * 0.05, r * 0.12, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); } // 비늘
+    catEars(g, '#F3EFE4'); body(g, '#F3EFE4', 0.95, 0.9);
+    ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.8; // 곤란한 눈썹
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx + sx * r * 0.18, hy - r * 0.4); ctx.lineTo(cx + sx * r * 0.45, hy - r * 0.3); ctx.stroke(); }
+    bigEyes(g, false); omegaMouth(g, 0.24);
+  },
+  // 鎧さん(라면): 노란 갑옷, 머리에 흰 수건, 선글라스 눈 + 잇몸 입
+  yoroi_ramen(g) {
+    const { ctx, cx, hy, r, lw } = g;
+    armorBody(g, '#F2C94C', '#B48A1E'); feet(g, '#F2C94C'); arms(g, '#F2C94C', 0);
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.8; // 수건
+    ctx.beginPath(); ctx.moveTo(cx - r * 0.98, hy - r * 0.35); ctx.quadraticCurveTo(cx, hy - r * 0.62, cx + r * 0.98, hy - r * 0.35);
+    ctx.lineTo(cx + r * 0.95, hy - r * 0.55); ctx.quadraticCurveTo(cx, hy - r * 1.2, cx - r * 0.95, hy - r * 0.55); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + r * 0.9, hy - r * 0.5); ctx.lineTo(cx + r * 1.25, hy - r * 0.2); ctx.lineTo(cx + r * 1.0, hy - r * 0.3); ctx.closePath(); ctx.fill(); ctx.stroke(); // 매듭
+    armorFace(g);
+  },
+  // 鎧さん(안내소): 은색 갑옷, 가슴에 'i' 표식
+  yoroi_info(g) {
+    const { ctx, cx, hy, r } = g;
+    armorBody(g, '#C9CDD6', '#8A9099'); feet(g, '#C9CDD6'); arms(g, '#C9CDD6', 0);
+    armorFace(g);
+    ctx.fillStyle = '#2F6FE4'; ctx.beginPath(); ctx.arc(cx, hy + r * 0.78, r * 0.13, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = `bold ${r * 0.2}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('i', cx, hy + r * 0.79);
+  },
+  // 鎧さん(포셰트): 파란 갑옷, 곰 포셰트, 등에 검
+  yoroi_pochette(g) {
+    const { ctx, cx, hy, r, lw } = g;
+    ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.9; ctx.fillStyle = '#C9CDD6'; // 검
+    ctx.beginPath(); ctx.moveTo(cx - r * 0.6, hy + r * 0.9); ctx.lineTo(cx - r * 1.25, hy - r * 0.9); ctx.lineTo(cx - r * 1.35, hy - r * 0.8); ctx.lineTo(cx - r * 0.75, hy + r * 0.95); ctx.closePath(); ctx.fill(); ctx.stroke();
+    armorBody(g, '#5B8DD9', '#2F5AA8'); feet(g, '#5B8DD9'); arms(g, '#5B8DD9', 0);
+    armorFace(g);
+    ctx.strokeStyle = '#8B5E3C'; ctx.lineWidth = lw * 0.6; ctx.beginPath(); ctx.moveTo(cx - r * 0.7, hy - r * 0.1); ctx.lineTo(cx + r * 0.55, hy + r * 0.85); ctx.stroke(); // 끈
+    ctx.fillStyle = '#8B5E3C'; ctx.strokeStyle = INK; ctx.lineWidth = lw * 0.6; // 곰 포셰트
+    ctx.beginPath(); ctx.arc(cx + r * 0.6, hy + r * 0.85, r * 0.22, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(cx + r * 0.6 + sx * r * 0.16, hy + r * 0.68, r * 0.08, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    ctx.fillStyle = INK; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(cx + r * 0.6 + sx * r * 0.07, hy + r * 0.82, r * 0.025, 0, Math.PI * 2); ctx.fill(); }
+  },
+};
 // 미수집 "!" 말풍선과 수집 반짝이. 세 렌더러가 공유한다.
 function drawBadges(ctx, cx, bodyCy, r, size, t, opts) {
   if (opts.sprite && !opts.collected && !opts.collecting) {
@@ -857,6 +1150,7 @@ function composite(t) {
       sprite: c.sprite, collected: c.sprite && isCollected(c.sprite.id) && c.state !== 'collect',
       waving: c.state === 'wave', collecting: c.state === 'collect', collectT: (t - c.since) / COLLECT_MS,
       tilt: c.state === 'peek' && c.walking ? Math.sin((t - c.since) / 85) * 0.07 : 0, // S11
+      seed: c.seed ?? 0, // S17
     });
     if (!(USE_MASK && occludeWithMask(s, ox, oy, vw, vh))) occlude(p, s, ox, oy, vw, vh); // S4 → S3 폴백
   }

@@ -24,7 +24,7 @@ No build step: just `index.html` + `app.js`. Libraries come from a CDN as ES mod
 | `?mask=0` | Disable segmentation and use the S3 rectangular bbox occlusion only |
 | `?debug=1` | Show detection boxes and labels (hidden by default since S16; the HUD is always on) |
 | `?reset=1` | Forget the chosen object, clear the collection and rescan |
-| `?skin=none` | Ignore official skin files and draw the name-tagged silhouettes |
+| `?skin=silhouette` | Ignore official skin files and draw the name-tagged silhouettes |
 
 HUD (top-left): detection Hz · segmentation Hz · render fps · delegate · locked class · miss time · character state · mask state.
 
@@ -48,6 +48,7 @@ HUD (top-left): detection Hz · segmentation Hz · render fps · delegate · loc
 | S14 | Findability: scan candidates seen ≥ N times, weighted pick, candidate/label hints, visible glow ring ([ADR-0019](docs/adr/0019-findability-hints-and-glow-ring.md)) | `S14: findability` |
 | S15 | 5-second scan, gyro target direction memory, edge glow hints when the target is out of frame ([ADR-0020](docs/adr/0020-five-second-scan-and-edge-direction-hint.md)) | `S15: edge direction hints` |
 | S16 | Focus after appearance: glow fades to 15%, spotlight vignette around the sprite, opaque sprite, debug boxes opt-in, hint moved above the shutter ([ADR-0021](docs/adr/0021-focus-on-character-after-appearance.md)) | `S16: focus on the character` |
+| S17 | Roster corrected to 14 actual characters and each drawn recognizably on canvas (`drawSpecies`); silhouettes via `?skin=silhouette` ([ADR-0022](docs/adr/0022-drawn-chiikawa-roster.md)) | `S17: drawn chiikawa roster` |
 
 ## Verification (headless Chromium + fake camera)
 
@@ -59,6 +60,7 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 
 - Confirmed: scan → `cup` chosen and stored, `cup` detected at 0.69 and locked, glow drawn behind it, charging → pop → idle, the mask hides the sprite along the cup's curved rim, first tap → `collect` (collection 1/6 persisted in localStorage), second tap → `wave`, shutter → `peekaboo-<ts>.jpg` download.
 - S13 (headless, Chromium fake camera, models blocked in the container so the lock was injected): `cup` lock → sneak → idle with species `chiikawa`; 400 draws of the species picker for `cup` gave chiikawa 257 · kurimanju 104 · yoroi_ramen 39, matching the 10:5:2 rarity weights; tap → `collect`, badge ★ 1/15, `peekaboo.collection` persisted with `night:false`; shutter → JPEG with the `치이카와 · 흔함 #Peekaboo` stamp; dex panel shows 주역 1/3 · 친구 0/9 · 갑옷 0/3 with rarity dots and silhouettes.
+- All 14 species as drawn by `drawSpecies` (S17): ![](docs/verify/s17-species-sheet.png)
 - Spotlight after the sprite appears (glow faded, background darkened, sprite opaque): ![](docs/verify/s16-spotlight.png) ![](docs/verify/s16-spotlight-side.png)
 - Edge direction hint when the target is out of frame: ![](docs/verify/s15-edge-hint.png) (S15; synthetic gyro, target 60° to the right).
 - Glow ring on a bright background: ![](docs/verify/s14-glow-ring.png) (S14; the orange rim stays visible where the radial glow washes out).
