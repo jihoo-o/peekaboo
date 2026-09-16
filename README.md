@@ -61,6 +61,8 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 
 `docs/preview/hachan-lab.html` is the current direction: three figures (peeking, sitting-teary, slumped) built from six design rules taken from 2026 character trends (head-as-body, dot eyes with eyebrows carrying emotion, deliberate asymmetry, low-saturation matte vinyl, posture, harmless emotions), with three expressions and seven body colors. The peeking figure is the pose the app will use.
 
+`docs/preview/emoticon-lab.html` benchmarks the top KakaoTalk emoticons (Dyu Ganadi, Broken Bear, Zanmang Loopy, Nagano bear, Choonsik, Tomong the talking potato, plus the 2025 doodle-style risers) in a table and renders their shared grammar as a six-cell 3D emoticon sheet: wailing, slumped, smug, blank, lying flat, peeking. Ivory body by default, hand-drawn wobbly outline toggle, seven body colors.
+
 ## Not yet verified on a phone
 
 - Detection / segmentation Hz, heat, and mask flicker on real Android Chrome (if flicker is bad, set `MASK_EMA` in `app.js` to 0.7).
