@@ -9,6 +9,7 @@
 // S10: 큰 물체는 옆에서 등장(화면 위 여유 없을 때) + 한 번 맞춘 물체는 이후 즉시 등장
 // S11: 짠! 대신 스을쩍 — 물체에 완전히 가려진 위치에서 뒤뚱거리며 걸어 나오고, 중간에 한 번 움찔 물러난다
 // S12: 패럴랙스 — 평소엔 반쯤 숨어 있고, 폰을 옆·위로 움직이면(물체가 화면에서 치우치면) 뒤에 숨은 캐릭터가 더 드러난다
+// S15: 타깃 못 잡는 문제 — 스캔은 딱 5초, 그동안 본 물체 중에서만 선정. 자이로로 물체 방향을 기억해 화면 밖이면 상하좌우 엣지 발광으로 카메라를 유도
 // S14: 못 찾는 문제 대응 — 스캔에서 충분히(4회↑) 본 물체만 후보, 본 횟수 가중 선택, 후보 목록·20초 뒤 라벨 힌트, 밝은 배경에서도 보이는 발광 링
 // S13: 먼작귀 도감 — 별사탕 6색 대신 캐릭터 15종. 물체 라벨마다 사는 종이 다르고, 희귀도·심야 시크릿·세트가 있다. 그림은 공식 에셋 슬롯(assets/skins/chiikawa/)이며 없으면 이름표 실루엣
 
@@ -26,7 +27,7 @@ const EXCLUDED = new Set([
 ]);
 const isTargetable = (label) => !EXCLUDED.has(label);
 const ALLOWED = { includes: isTargetable }; // 기존 호출부(ALLOWED.includes) 유지
-const LOCK_MIN_SCORE = 0.5;
+const LOCK_MIN_SCORE = 0.4;   // S15: 검출기 문턱(0.4)과 같게. 실물은 0.4~0.6대가 흔하다
 const LOCK_MIN_IOU = 0.3;
 const LOCK_LOST_MS = 1000;
 
@@ -40,9 +41,11 @@ const MASK_BLUR_PX = 2;
 const CONFIRM_HITS = 3;       // 연속 매칭 n회 → "타깃 확실"
 const HOLD_MS = 5000;         // 확정 상태를 이만큼 유지해야 등장
 // S8: 스캔·발광
-const SCAN_MS = 6000;         // 최소 스캔 시간. 허용 물체가 하나도 안 보이면 계속 스캔
-const SCAN_MIN_HITS = 4;      // S14: 이 횟수 이상 본 물체만 후보 (검출이 깜빡인 라벨 제외)
-const SCAN_MAX_MS = 15000;    // S14: 이 시간이 지나면 2회 이상 본 물체까지 후보로 완화
+const SCAN_MS = 5000;         // S15: 스캔 5초. 그동안 본 물체 중에서만 선정
+const SCAN_MIN_HITS = 3;      // S14: 이 횟수 이상 본 물체만 후보 (검출이 깜빡인 라벨 제외)
+const SCAN_MAX_MS = 10000;    // S14: 이 시간이 지나면 1회라도 본 물체까지 후보로 완화
+const EDGE_HINT_DEG = 8;      // S15: 목표 방향과 이보다 벌어지면 엣지 발광
+const EDGE_FULL_DEG = 50;     // S15: 이만큼 벌어지면 엣지 발광 최대
 const HINT_AFTER_MS = 20000;  // S14: 이만큼 못 찾으면 라벨 힌트
 const NEAR_MIN = 0.15, NEAR_MAX = 0.6; // bbox 폭/영상 폭 → 0(멀다)~1(가깝다)
 // S12: 패럴랙스. 물체가 화면 중앙에서 얼마나 치우쳤는지(-1~1)를 카메라 이동의 근사치로 쓴다.
@@ -111,12 +114,13 @@ const state = {
   // S3 (S7에서 확장): hidden → charging → peek → idle ⇄ wave/collect → hide
   char: { state: 'hidden', since: 0, progress: 0, sprite: null, walking: false },
   // S7
-  home: store.get('home', null),            // { label, savedAt, seen } S8: 스캔 결과에서 고른 대상 물체
+  home: (() => { const h = store.get('home', null); if (h?.orient && !h.orient.abs) h.orient = null; return h; })(), // S8/S15: 상대 자이로값은 새 세션에서 무효
   // S8
   phase: store.get('home', null) ? 'play' : 'scan',
   scan: { start: 0, seen: {} },             // seen[label] = { n, maxW }
   near: 0,                                  // 0~1 대상 물체와의 가까움(bbox 폭 기준)
   playStart: 0, lastLockAt: 0,              // S14: 힌트 타이머
+  edge: null,                               // S15: 마지막 엣지 힌트
   parallax: { x: 0, y: 0 },                 // S12: 스무딩된 화면 내 치우침 (-1~1)
   collection: store.get('collection', []).filter((c) => SPECIES.some((s) => s.id === c.id)),  // [{ id, label, at, night }] S13: 옛 별사탕 id는 버림
   hits: 0,                                  // 현재 락의 연속 매칭 횟수
@@ -204,7 +208,10 @@ function updateTracker(dets, now) {
     state.hits++; // S7
   } else {
     state.missMs = now - lock.lastSeen;
-    if (state.missMs >= LOCK_LOST_MS) { state.lock = null; state.missMs = 0; state.hits = 0; }
+    if (state.missMs >= LOCK_LOST_MS) {
+      rememberExitSide(lock); // S15
+      state.lock = null; state.missMs = 0; state.hits = 0;
+    }
   }
 }
 
@@ -363,6 +370,78 @@ function occludeWithMask(s, ox, oy, vw, vh) {
   return true;
 }
 
+// ---- S15: 카메라 방향(자이로) + 엣지 발광 힌트 ----
+// DeviceOrientation(alpha, beta, gamma) → 후면 카메라가 보는 방향의 나침반 heading(북=0, 시계방향)과 pitch(위=+)
+const orient = { ok: false, abs: false, heading: 0, pitch: 0 };
+function cameraDir(alpha, beta, gamma) {
+  const a = alpha * Math.PI / 180, b = beta * Math.PI / 180, g = gamma * Math.PI / 180;
+  const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b), cg = Math.cos(g), sg = Math.sin(g);
+  // R = Rz(a)·Rx(b)·Ry(g) 를 기기 -z(카메라 방향)에 적용. 세계축: x=동, y=북, z=위
+  const x = ca * (-sg) - sa * (sb * cg), y = sa * (-sg) + ca * (sb * cg), z = -cb * cg;
+  return { heading: Math.atan2(x, y) * 180 / Math.PI, pitch: Math.asin(Math.max(-1, Math.min(1, z))) * 180 / Math.PI };
+}
+function onOrient(e) {
+  if (e.alpha == null || e.beta == null || e.gamma == null) return;
+  const abs = e.type === 'deviceorientationabsolute' || e.absolute === true;
+  if (orient.abs && !abs) return; // 절대값이 오면 상대값은 무시
+  const d = cameraDir(e.alpha, e.beta, e.gamma);
+  orient.ok = true; orient.abs = abs; orient.heading = d.heading; orient.pitch = d.pitch;
+}
+window.addEventListener('deviceorientationabsolute', onOrient);
+window.addEventListener('deviceorientation', onOrient);
+async function requestOrientation() { // iOS 13+는 사용자 제스처 안에서 권한 요청
+  try { if (typeof DeviceOrientationEvent?.requestPermission === 'function') await DeviceOrientationEvent.requestPermission(); } catch {}
+}
+const wrapDeg = (d) => ((d + 540) % 360) - 180;
+
+// 락이 풀릴 때 물체가 어느 가장자리로 나갔는지 기억(자이로가 없을 때의 대체 힌트)
+function rememberExitSide(lock) {
+  if (!state.home) return;
+  const cx = (lock.box.x + lock.box.w / 2) / video.videoWidth, cy = (lock.box.y + lock.box.h / 2) / video.videoHeight;
+  const dx = cx - 0.5, dy = cy - 0.5;
+  state.home.lastSide = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'top' : 'bottom');
+  store.set('home', state.home);
+}
+// 락 중엔 목표 방향을 갱신(1초마다 저장)
+let lastOrientSave = 0;
+function refreshTargetOrient(now) {
+  if (!state.home || !orient.ok) return;
+  state.home.orient = { heading: orient.heading, pitch: orient.pitch, abs: orient.abs };
+  if (now - lastOrientSave > 1000) { lastOrientSave = now; store.set('home', state.home); }
+}
+// 화면 밖 목표를 향한 엣지 세기 {left,right,top,bottom} 0~1. 자이로 차이 우선, 없으면 마지막으로 나간 방향
+function edgeHint() {
+  const h = state.home; if (!h) return null;
+  const o = h.orient;
+  if (orient.ok && o && (o.abs === orient.abs || !o.abs)) {
+    const dH = wrapDeg(o.heading - orient.heading), dP = o.pitch - orient.pitch;
+    const k = (d) => Math.max(0, Math.min(1, (Math.abs(d) - EDGE_HINT_DEG) / (EDGE_FULL_DEG - EDGE_HINT_DEG)));
+    const e = { left: dH < 0 ? k(dH) : 0, right: dH > 0 ? k(dH) : 0, top: dP > 0 ? k(dP) : 0, bottom: dP < 0 ? k(dP) : 0 };
+    if (e.left || e.right || e.top || e.bottom) return { ...e, src: 'gyro' };
+    return { left: 0, right: 0, top: 0, bottom: 0, src: 'gyro' }; // 방향은 맞는데 안 보임 → 엣지 없음
+  }
+  if (h.lastSide) return { left: 0, right: 0, top: 0, bottom: 0, [h.lastSide]: 0.6, src: 'side' };
+  return null;
+}
+function drawEdgeHint(ctx, e, t) {
+  const W = canvas.width, H = canvas.height, pulse = 0.8 + 0.2 * Math.sin(t / 350);
+  const band = Math.min(W, H) * 0.22;
+  const bar = (k, x0, y0, x1, y1, rx, ry, rw, rh, glyph, gx, gy) => {
+    if (!k) return;
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, `rgba(255,170,40,${0.85 * k * pulse})`); g.addColorStop(1, 'rgba(255,170,40,0)');
+    ctx.fillStyle = g; ctx.fillRect(rx, ry, rw, rh);
+    ctx.fillStyle = `rgba(255,255,255,${0.9 * k})`; ctx.font = `bold ${Math.round(band * 0.35)}px system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(glyph, gx, gy);
+  };
+  ctx.save();
+  bar(e.left,   0, 0, band, 0,   0, 0, band, H,          '◀', band * 0.3, H / 2);
+  bar(e.right,  W, 0, W - band, 0, W - band, 0, band, H, '▶', W - band * 0.3, H / 2);
+  bar(e.top,    0, 0, 0, band,   0, 0, W, band,          '▲', W / 2, band * 0.3);
+  bar(e.bottom, 0, H, 0, H - band, 0, H - band, W, band, '▼', W / 2, H - band * 0.3);
+  ctx.restore();
+}
+
 // ---- S8: 공간 스캔 → 대상 물체 선택 ----
 function startScan(now) {
   state.phase = 'scan'; state.scan = { start: now, seen: {} };
@@ -371,8 +450,12 @@ function startScan(now) {
 function recordScan(dets) {
   for (const d of dets) {
     if (!ALLOWED.includes(d.label) || d.score < LOCK_MIN_SCORE) continue;
-    const s = state.scan.seen[d.label] ??= { n: 0, maxW: 0 };
+    const s = state.scan.seen[d.label] ??= { n: 0, maxW: 0, sx: 0, sy: 0, sp: 0, no: 0 };
     s.n++; s.maxW = Math.max(s.maxW, d.w);
+    if (orient.ok) { // S15: 이 물체를 봤을 때의 카메라 방향(원형 평균용 합)
+      const h = orient.heading * Math.PI / 180;
+      s.sx += Math.sin(h); s.sy += Math.cos(h); s.sp += orient.pitch; s.no++;
+    }
   }
 }
 // 스캔 종료 조건: 최소 시간 경과 + 허용 물체 1개 이상. 그중 하나를 무작위로 골라 저장(플레이어에겐 비밀).
@@ -380,14 +463,16 @@ function maybeFinishScan(now) {
   if (state.phase !== 'scan') return;
   if (!state.scan.start) state.scan.start = now;
   const el = now - state.scan.start;
-  const minHits = el >= SCAN_MAX_MS ? 2 : SCAN_MIN_HITS; // S14: 오래 걸리면 완화
+  const minHits = el >= SCAN_MAX_MS ? 1 : SCAN_MIN_HITS; // S14/S15: 오래 걸리면 완화
   const labels = Object.keys(state.scan.seen).filter((l) => state.scan.seen[l].n >= minHits);
   if (el < SCAN_MS || !labels.length) return;
   // S14: 본 횟수에 비례해 뽑는다(확실히 있는 물체가 대상이 될 확률이 높게)
   const total = labels.reduce((a, l) => a + state.scan.seen[l].n, 0);
   let r = Math.random() * total, label = labels[labels.length - 1];
   for (const l of labels) { r -= state.scan.seen[l].n; if (r <= 0) { label = l; break; } }
-  state.home = { label, savedAt: Date.now(), seen: labels };
+  const s = state.scan.seen[label];
+  const orientAt = s.no ? { heading: Math.atan2(s.sx, s.sy) * 180 / Math.PI, pitch: s.sp / s.no, abs: orient.abs } : null; // S15
+  state.home = { label, savedAt: Date.now(), seen: labels, orient: orientAt, lastSide: null };
   store.set('home', state.home);
   state.phase = 'play'; state.playStart = now; state.lastLockAt = 0;
   renderBadge();
@@ -742,7 +827,8 @@ function composite(t) {
   const c = state.char;
   updateNear(); // S8
   if (state.lock) state.lastLockAt = t; // S14
-  if (p && state.phase === 'play') drawGlow(ctx, p.box, t); // S8: 물체 뒤 발광 (캐릭터·오클루전보다 먼저)
+  if (p && state.phase === 'play') { drawGlow(ctx, p.box, t); refreshTargetOrient(t); state.edge = null; } // S8: 물체 뒤 발광 (캐릭터·오클루전보다 먼저). S15: 방향 갱신
+  if (!p && state.phase === 'play') { const e = edgeHint(); if (e) { state.edge = e; drawEdgeHint(ctx, e, t); } } // S15: 화면 밖이면 엣지 발광
   if (p && c.state !== 'hidden' && c.state !== 'charging') {
     drawCharacter(ctx, p.cx, p.cy, p.size, t, { // S7
       sprite: c.sprite, collected: c.sprite && isCollected(c.sprite.id) && c.state !== 'collect',
@@ -805,7 +891,8 @@ function render(t) {
     `lock ${state.lock ? state.lock.label : '-'} | miss ${(state.missMs / 1000).toFixed(1)}s | char ${state.char.state}\n` +
     `mask ${USE_MASK ? (state.mask ? 'on' : 'none') : 'off'} | rej ${state.maskRejects}\n` +
     `phase ${state.phase} | home ${state.home?.label ?? '-'}${state.home?.solved ? '✓' : ''} | near ${state.near.toFixed(2)} | hits ${state.hits}\n` +
-    `sprite ${state.char.sprite?.id ?? '-'}${isNight() ? ' night' : ''} | col ${state.collection.length}/${SPECIES.length} | px ${state.parallax.x.toFixed(2)} py ${state.parallax.y.toFixed(2)}` +
+    `sprite ${state.char.sprite?.id ?? '-'}${isNight() ? ' night' : ''} | col ${state.collection.length}/${SPECIES.length} | px ${state.parallax.x.toFixed(2)} py ${state.parallax.y.toFixed(2)}\n` +
+    `gyro ${orient.ok ? (orient.abs ? 'abs ' : 'rel ') + orient.heading.toFixed(0) + '°/' + orient.pitch.toFixed(0) + '°' : '-'} | target ${state.home?.orient ? state.home.orient.heading.toFixed(0) + '°/' + state.home.orient.pitch.toFixed(0) + '°' : '-'} | edge ${state.edge ? ['left','right','top','bottom'].filter((k) => state.edge[k]).join(',') || 'none' : '-'}` +
     (state.error ? `\nERR ${state.error}` : '');
   requestAnimationFrame(render);
 }
@@ -871,14 +958,17 @@ function updateHint() {
   let text = '';
   if (state.phase === 'scan') { // S8
     const n = Object.keys(state.scan.seen).length;
-    text = n ? `주변을 천천히 둘러보세요… 물체 ${n}개 발견` : '주변을 천천히 둘러보세요';
+    const left = Math.max(0, Math.ceil((SCAN_MS - (performance.now() - state.scan.start)) / 1000));
+    text = n ? `주변을 천천히 둘러보세요 (${left}초)… 물체 ${n}개 발견` : `주변을 천천히 둘러보세요 (${left}초)`;
   }
   else if (!state.lock) { // S14: 후보 목록 + 오래 못 찾으면 라벨 힌트
     const seen = state.home?.seen ?? [];
     const base = isNight() ? '심야에는 세이렌이 나올지도…' : '이 공간 어딘가에 먼작귀가 숨어 있어요.';
     const cand = seen.length > 1 ? ` 스캔에서 본 ${seen.length}개(${seen.join(', ')}) 중 하나예요.` : '';
     const waited = performance.now() - Math.max(state.playStart, state.lastLockAt);
-    const hint = state.home && waited > HINT_AFTER_MS ? ` 힌트: ${state.home.label} 근처를 비춰보세요` : ' 빛나는 물건을 찾아보세요';
+    const e = state.edge, dirOn = e && (e.left || e.right || e.top || e.bottom);
+    const hint = state.home && waited > HINT_AFTER_MS ? ` 힌트: ${state.home.label} 근처를 비춰보세요`
+      : dirOn ? ' 빛나는 가장자리 쪽으로 카메라를 돌려보세요' : ' 빛나는 물건을 찾아보세요';
     text = base + cand + hint;
   }
   else if (c.state === 'hidden' || c.state === 'hide') text = state.home?.solved ? '' : state.near < 0.5 ? '빛이 보여요! 더 가까이…' : '여기다! 가만히 비춰보세요';
@@ -938,6 +1028,7 @@ panel.querySelector('#reset').addEventListener('click', () => {
 // ---- 시작 ----
 async function main() {
   startBtn.hidden = true;
+  await requestOrientation(); // S15
   resizeCanvas();
   try {
     await startCamera();
