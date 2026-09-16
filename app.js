@@ -8,6 +8,7 @@
 // S8: 공간 스캔 → 대상 물체 무작위 선택 → 물체 뒤 발광(가까울수록 강하게) → 5초 충전 → 짠! 등장
 // S10: 큰 물체는 옆에서 등장(화면 위 여유 없을 때) + 한 번 맞춘 물체는 이후 즉시 등장
 // S11: 짠! 대신 스을쩍 — 물체에 완전히 가려진 위치에서 뒤뚱거리며 걸어 나오고, 중간에 한 번 움찔 물러난다
+// S12: 패럴랙스 — 평소엔 반쯤 숨어 있고, 폰을 옆·위로 움직이면(물체가 화면에서 치우치면) 뒤에 숨은 캐릭터가 더 드러난다
 
 const VISION_VERSION = '0.10.35';
 const VISION_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VERSION}`;
@@ -39,6 +40,10 @@ const HOLD_MS = 5000;         // 확정 상태를 이만큼 유지해야 등장
 // S8: 스캔·발광
 const SCAN_MS = 6000;         // 최소 스캔 시간. 허용 물체가 하나도 안 보이면 계속 스캔
 const NEAR_MIN = 0.15, NEAR_MAX = 0.6; // bbox 폭/영상 폭 → 0(멀다)~1(가깝다)
+// S12: 패럴랙스. 물체가 화면 중앙에서 얼마나 치우쳤는지(-1~1)를 카메라 이동의 근사치로 쓴다.
+const PARALLAX_X = 0.55;   // 가로 최대 이동 = bbox 폭 × 이 값
+const PARALLAX_Y = 0.35;   // 세로 최대 이동 = bbox 높이 × 이 값 (위에서 내려다볼 때)
+const PARALLAX_SMOOTH = 0.12;
 const SPRITES = [             // 캐릭터 6종 = 별사탕 색. 수집 대상 식별자.
   { id: 'pink',   color: '#f48fb1', name: '분홍' },
   { id: 'green',  color: '#81c784', name: '초록' },
@@ -84,6 +89,7 @@ const state = {
   phase: store.get('home', null) ? 'play' : 'scan',
   scan: { start: 0, seen: {} },             // seen[label] = { n, maxW }
   near: 0,                                  // 0~1 대상 물체와의 가까움(bbox 폭 기준)
+  parallax: { x: 0, y: 0 },                 // S12: 스무딩된 화면 내 치우침 (-1~1)
   collection: store.get('collection', []),  // [{ id, label, at }]
   hits: 0,                                  // 현재 락의 연속 매칭 횟수
   // S4
@@ -94,6 +100,7 @@ const state = {
   shots: 0,
 };
 window.__peekaboo = state;
+state.placement = () => characterPlacement(performance.now()); // 디버그용
 
 // ---- 유틸 ----
 function hz(times, now) {
@@ -370,6 +377,11 @@ function drawScan(ctx, t) {
 function updateNear() {
   const L = state.lock;
   state.near = L ? Math.max(0, Math.min(1, (L.box.w / video.videoWidth - NEAR_MIN) / (NEAR_MAX - NEAR_MIN))) : 0;
+  // S12: 물체 중심의 화면 내 치우침 → 패럴랙스 목표값, EMA로 부드럽게
+  const p = state.parallax;
+  const tx = L ? Math.max(-1, Math.min(1, ((L.box.x + L.box.w / 2) / video.videoWidth - 0.5) * 2)) : 0;
+  const ty = L ? Math.max(-1, Math.min(1, ((L.box.y + L.box.h / 2) / video.videoHeight - 0.5) * 2)) : 0;
+  p.x += (tx - p.x) * PARALLAX_SMOOTH; p.y += (ty - p.y) * PARALLAX_SMOOTH;
 }
 // S8: 물체 뒤 발광. 캐릭터보다 먼저 그리고, 그 위에 마스크로 잘라낸 물체 픽셀이 덮여 "뒤에서 새어 나오는" 빛이 된다.
 function drawGlow(ctx, b, t) {
@@ -573,18 +585,21 @@ function characterPlacement(t) {
   if (c.state === 'wave') bob = -Math.abs(Math.sin((t - c.since) / WAVE_MS * Math.PI * 2)) * 0.12 * Math.min(b.h, size * 2); // S5: 점프
   if (c.state === 'collect') bob = -Math.abs(Math.sin((t - c.since) / COLLECT_MS * Math.PI)) * 0.2 * Math.min(b.h, size * 2); // S7: 큰 점프
   if (c.state === 'peek' && c.walking) bob = -Math.abs(Math.sin((t - c.since) / 85)) * size * 0.035; // S11: 걷는 들썩임
+  // S12: 패럴랙스 — 물체가 화면 왼쪽에 있으면(카메라가 오른쪽으로 이동) 캐릭터는 오른쪽으로, 물체가 아래쪽이면(위에서 봄) 위로
+  const px = -state.parallax.x * b.w * PARALLAX_X * c.progress;
+  const py = -Math.max(0, state.parallax.y) * b.h * PARALLAX_Y * c.progress;
   if (side === 'top') {
-    // S11: 숨김 위치는 털까지 bbox 상단 아래로(가능하면 완전히 가려짐), 등장 = 0.15h
+    // S11: 숨김 위치는 털까지 bbox 상단 아래로(가능하면 완전히 가려짐). S12: 등장해도 반쯤(0.45h) 숨어 있고 패럴랙스로 더 드러남
     const hiddenY = Math.min(Math.max(b.y + b.h * 0.6, b.y + size * 1.2), b.y + b.h + size * 0.2);
-    const shownY = b.y + b.h * 0.15;
-    const anchorY = Math.max(hiddenY + (shownY - hiddenY) * c.progress, topMargin + size) + bob;
-    return { cx: b.x + b.w / 2, cy: anchorY, size, side, box: b };
+    const shownY = b.y + b.h * 0.45;
+    const anchorY = Math.max(hiddenY + (shownY - hiddenY) * c.progress + py, topMargin + size) + bob;
+    return { cx: b.x + b.w / 2 + px, cy: anchorY, size, side, box: b };
   }
-  // 옆: 숨김 = 털까지 bbox 안쪽(가려짐), 등장 = 몸의 85%가 bbox 밖으로
+  // 옆: 숨김 = 털까지 bbox 안쪽(가려짐), 등장 = 몸의 55%가 bbox 밖으로. 패럴랙스로 더 드러남
   const dir = side === 'right' ? 1 : -1;
   const edge = side === 'right' ? b.x + b.w : b.x;
-  const cx = edge + dir * (-size * 0.7 + size * 1.05 * c.progress);
-  const cy = Math.min(Math.max(b.y + b.h * 0.55, topMargin + size), canvas.height - size * 0.3) + size / 2 + bob;
+  const cx = edge + dir * (-size * 0.7 + size * 0.75 * c.progress) + px;
+  const cy = Math.min(Math.max(b.y + b.h * 0.55, topMargin + size), canvas.height - size * 0.3) + size / 2 + bob + py;
   return { cx, cy, size, side, box: b };
 }
 
@@ -659,7 +674,7 @@ function render(t) {
     `lock ${state.lock ? state.lock.label : '-'} | miss ${(state.missMs / 1000).toFixed(1)}s | char ${state.char.state}\n` +
     `mask ${USE_MASK ? (state.mask ? 'on' : 'none') : 'off'} | rej ${state.maskRejects}\n` +
     `phase ${state.phase} | home ${state.home?.label ?? '-'}${state.home?.solved ? '✓' : ''} | near ${state.near.toFixed(2)} | hits ${state.hits}\n` +
-    `sprite ${state.char.sprite?.id ?? '-'} | col ${state.collection.length}/${SPRITES.length}` +
+    `sprite ${state.char.sprite?.id ?? '-'} | col ${state.collection.length}/${SPRITES.length} | px ${state.parallax.x.toFixed(2)} py ${state.parallax.y.toFixed(2)}` +
     (state.error ? `\nERR ${state.error}` : '');
   requestAnimationFrame(render);
 }
