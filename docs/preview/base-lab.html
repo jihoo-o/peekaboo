@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+</head>
+<body style="margin:0">
+<title>베이스 캐릭터 5안</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --bg: #F6F3EC; --card: #FFFFFF; --view: #FBFAF6; --ink: #2B2620; --ink-2: #6F675C; --line: #E3DDD2;
+    --accent: #FAE100; --accent-ink: #3C1E1E; --dot: #2B2620; --dot-off: #E3DDD2; --chip-ring: #2B2620; --focus: #2F6FE4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1A1815; --card: #24211D; --view: #2C2823; --ink: #F3EFE8; --ink-2: #ABA396; --line: #3A352E;
+      --accent: #FAE100; --accent-ink: #3C1E1E; --dot: #F3EFE8; --dot-off: #3A352E; --chip-ring: #F3EFE8; --focus: #7FA6F5;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1A1815; --card: #24211D; --view: #2C2823; --ink: #F3EFE8; --ink-2: #ABA396; --line: #3A352E;
+    --accent: #FAE100; --accent-ink: #3C1E1E; --dot: #F3EFE8; --dot-off: #3A352E; --chip-ring: #F3EFE8; --focus: #7FA6F5;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif; font-size: 15px; line-height: 1.6; padding-inline: 16px; padding-block: 20px 40px; }
+  .wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+  h1, h2, h3, .name, .tag, .seg button, .verdict b { font-family: "Jua", "Noto Sans KR", system-ui, sans-serif; font-weight: 400; }
+  h1 { font-size: clamp(26px, 3.6vw, 36px); line-height: 1.15; margin: 0; text-wrap: balance; }
+  h1 em { font-style: normal; background: var(--accent); color: var(--accent-ink); padding: 0 8px; border-radius: 10px; }
+  .top p { margin: 6px 0 0; color: var(--ink-2); max-width: 66ch; }
+  h2 { font-size: 20px; margin: 0 0 8px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 12px 18px; display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center; }
+  .seg { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .seg > span { font-size: 14px; color: var(--ink-2); margin-right: 4px; }
+  .seg button { border: 1px solid var(--line); background: var(--view); color: var(--ink); border-radius: 999px; padding: 5px 14px; font-size: 15px; cursor: pointer; }
+  .seg button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .seg button:focus-visible, .view:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(225px, 1fr)); gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 12px 12px 14px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+  .view { position: relative; aspect-ratio: 1 / 1; max-width: 100%; border-radius: 14px; background: var(--view); overflow: hidden; touch-action: none; cursor: grab; }
+  .view:active { cursor: grabbing; }
+  .view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .tag { position: absolute; top: 20px; left: 20px; background: var(--accent); color: var(--accent-ink); font-size: 13px; padding: 2px 10px; border-radius: 999px; z-index: 1; }
+  .meta { display: flex; flex-direction: column; gap: 4px; padding-inline: 4px; }
+  .eyebrow { font-size: 12px; letter-spacing: .06em; color: var(--ink-2); }
+  .name { font-size: 22px; line-height: 1.2; }
+  .name small { font-size: 14px; color: var(--ink-2); margin-left: 6px; font-family: "Noto Sans KR", system-ui, sans-serif; }
+  .meta p { margin: 0; color: var(--ink-2); font-size: 13.5px; }
+  .meta p b { color: var(--ink); font-weight: 500; }
+  .score { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 12px; color: var(--ink-2); border-top: 1px dashed var(--line); padding-top: 8px; margin-top: 4px; }
+  .dots { letter-spacing: 2px; font-size: 13px; color: var(--dot); }
+  .dots span { color: var(--dot-off); }
+  .bench { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 13.5px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  th, td { text-align: left; padding: 9px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--view); color: var(--ink-2); font-weight: 500; font-size: 12px; letter-spacing: .04em; border-top: 0; }
+  td:first-child { font-family: "Jua", "Noto Sans KR", system-ui, sans-serif; font-size: 15px; white-space: nowrap; }
+  .verdict { background: var(--card); border: 1px solid var(--line); border-left: 6px solid var(--accent); border-radius: 16px; padding: 14px 18px; }
+  .verdict b { font-size: 18px; display: block; margin-bottom: 4px; }
+  .verdict p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .notes section { border-top: 3px solid var(--accent); padding-top: 10px; }
+  .notes h3 { font-size: 15px; margin: 0 0 6px; }
+  .notes p, .notes li { color: var(--ink-2); font-size: 14px; margin: 0; }
+  .notes ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>인기 이모티콘 스타일로 새로 잡은 <em>베이스 캐릭터</em> 5안</h1>
+    <p>기존 노란 고양이를 변형하지 않고 처음부터 다시 잡았습니다. 카카오 상위권 문법(흰 몸에 볼 터치만 색, 투박한 손그림 선, 점 눈, 뭉툭한 팔다리, 앉기·엎드리기·빼꼼 자세)을 지키면서, 모티프 자체가 "하찮음"과 "숨었다 나오기"를 설명하는 다섯 가지입니다. 이름은 가칭입니다. 드래그로 돌리고 탭하면 찌그러집니다.</p>
+  </header>
+
+  <section class="panel" aria-label="조절">
+    <div class="seg" role="radiogroup" aria-label="외곽선">
+      <span>선</span>
+      <button id="ln-on" role="radio" aria-checked="true" data-line="1">손그림 선</button>
+      <button id="ln-off" role="radio" aria-checked="false" data-line="0">선 없음</button>
+    </div>
+    <div class="seg" role="radiogroup" aria-label="표정">
+      <span>표정</span>
+      <button id="ex-own" role="radio" aria-checked="true" data-expr="own">캐릭터 기본</button>
+      <button id="ex-wail" role="radio" aria-checked="false" data-expr="wail">듀아아</button>
+      <button id="ex-smug" role="radio" aria-checked="false" data-expr="smug">뻔뻔</button>
+      <button id="ex-blank" role="radio" aria-checked="false" data-expr="blank">멍</button>
+    </div>
+  </section>
+
+  <main class="grid">
+    <article class="card" data-kind="mole">
+      <span class="tag">추천 1</span>
+      <div class="view" tabindex="0" aria-label="두둥 3D 프리뷰"><canvas></canvas></div>
+      <div class="meta">
+        <div class="eyebrow">두더지 · 그레이지</div>
+        <div class="name">두둥<small>가칭</small></div>
+        <p>땅속에서 빼꼼 올라오는 두더지. 눈은 거의 감긴 선, 코만 분홍. 큰 앞발로 턱을 짚고 올려다본다.</p>
+        <p><b>벤치마크</b> 망그러진 곰의 "감은 듯한 눈", 스미스키의 빼꼼 자세</p>
+        <p><b>Peekaboo</b> 물체 뒤에서 흙 튀기며 쏙. 탭하면 움찔 숨었다 다시 나옴. 수집품은 땅속 보석</p>
+        <dl class="score"><dt>하찮음</dt><dd class="dots" data-s="4"></dd><dt>유행 적합</dt><dd class="dots" data-s="3"></dd><dt>등장 연출</dt><dd class="dots" data-s="5"></dd></dl>
+      </div>
+    </article>
+    <article class="card" data-kind="seal">
+      <span class="tag">추천 2</span>
+      <div class="view" tabindex="0" aria-label="쭈물 3D 프리뷰"><canvas></canvas></div>
+      <div class="meta">
+        <div class="eyebrow">물범 · 흰색</div>
+        <div class="name">쭈물<small>가칭</small></div>
+        <p>바닥에 납작 엎드린 아기 물범. 점 눈, 코 점, 수염 점 세 개. 팔이 없어 아무것도 못 한다.</p>
+        <p><b>벤치마크</b> 담곰이·대충살자의 무기력, 포테토뭉의 덩어리감</p>
+        <p><b>Peekaboo</b> 물체 옆에서 미끄러지듯 나옴. 탭하면 출렁. 수집품은 조개</p>
+        <dl class="score"><dt>하찮음</dt><dd class="dots" data-s="5"></dd><dt>유행 적합</dt><dd class="dots" data-s="4"></dd><dt>등장 연출</dt><dd class="dots" data-s="3"></dd></dl>
+      </div>
+    </article>
+    <article class="card" data-kind="loaf">
+      <div class="view" tabindex="0" aria-label="빵식 3D 프리뷰"><canvas></canvas></div>
+      <div class="meta">
+        <div class="eyebrow">식빵 · 밀색</div>
+        <div class="name">빵식<small>가칭</small></div>
+        <p>식빵 한 덩이. 팔 없이 발만 두 개. 반쯤 감은 눈으로 씩 웃는다. 식빵 자세 고양이의 그 식빵.</p>
+        <p><b>벤치마크</b> 잔망루피의 뻔뻔한 반전, 포테토뭉의 사물 캐릭터</p>
+        <p><b>Peekaboo</b> 물체 위에 툭 올라와 앉음. 탭하면 납작 눌림. 수집품은 잼</p>
+        <dl class="score"><dt>하찮음</dt><dd class="dots" data-s="4"></dd><dt>유행 적합</dt><dd class="dots" data-s="4"></dd><dt>등장 연출</dt><dd class="dots" data-s="3"></dd></dl>
+      </div>
+    </article>
+    <article class="card" data-kind="chick">
+      <div class="view" tabindex="0" aria-label="삐약 3D 프리뷰"><canvas></canvas></div>
+      <div class="meta">
+        <div class="eyebrow">병아리 · 연노랑</div>
+        <div class="name">삐약<small>가칭</small></div>
+        <p>툭하면 우는 통통한 병아리. 머리에 털 세 가닥, 작은 부리, 주황 발. 노랑은 원래 컬러의 유일한 계승.</p>
+        <p><b>벤치마크</b> 가나디의 "듀아아" 울보 감정기복, 찌그렁 오리</p>
+        <p><b>Peekaboo</b> 물체 뒤에서 삐약 하고 튀어나옴. 탭하면 울음. 수집품은 씨앗</p>
+        <dl class="score"><dt>하찮음</dt><dd class="dots" data-s="3"></dd><dt>유행 적합</dt><dd class="dots" data-s="4"></dd><dt>등장 연출</dt><dd class="dots" data-s="3"></dd></dl>
+      </div>
+    </article>
+    <article class="card" data-kind="ghost">
+      <div class="view" tabindex="0" aria-label="홀 3D 프리뷰"><canvas></canvas></div>
+      <div class="meta">
+        <div class="eyebrow">꼬마 유령 · 흰색</div>
+        <div class="name">홀<small>가칭</small></div>
+        <p>이불 뒤집어쓴 꼬마 유령. 점 눈, 동그란 입, 물결 밑단. 무서운 데가 하나도 없어서 하찮다.</p>
+        <p><b>벤치마크</b> 낙서 스타일 흰 캐릭터, 옴팡이의 말랑한 단순함</p>
+        <p><b>Peekaboo</b> 숨바꼭질이 곧 정체성. 물체 뒤에서 스르륵 떠오름. 수집품은 별사탕 그대로</p>
+        <dl class="score"><dt>하찮음</dt><dd class="dots" data-s="3"></dd><dt>유행 적합</dt><dd class="dots" data-s="3"></dd><dt>등장 연출</dt><dd class="dots" data-s="5"></dd></dl>
+      </div>
+    </article>
+  </main>
+
+  <div class="verdict"><b>추천: 두둥(두더지) 1순위, 쭈물(물범) 2순위</b><p>두둥은 "올라온다"는 동작 자체가 캐릭터라 Peekaboo의 충전·등장·탭 연출이 설명 없이 읽힙니다. 쭈물은 다섯 중 가장 하찮고 요즘 물범 밈과도 맞지만, 엎드린 몸이라 물체 위로 나오는 연출이 약합니다. 두 안을 합쳐 "물체 뒤에서 올라오는 물범"도 가능합니다.</p></div>
+
+  <section>
+    <h2>비교표</h2>
+    <div class="bench">
+      <table>
+        <thead><tr><th>가칭</th><th>모티프</th><th>몸 색</th><th>기본 표정</th><th>벤치마크한 인기 요인</th><th>등장 방식</th><th>수집품</th></tr></thead>
+        <tbody>
+          <tr><td>두둥</td><td>두더지</td><td>그레이지 #D8CDBE</td><td>감은 선 눈 + 땀</td><td>망곰(감은 눈), 스미스키(빼꼼)</td><td>흙 튀기며 쏙</td><td>보석</td></tr>
+          <tr><td>쭈물</td><td>아기 물범</td><td>흰색 #FFFFFF</td><td>멍 + 수염 점</td><td>담곰이(무기력), 포테토뭉(덩어리)</td><td>옆에서 미끄러짐</td><td>조개</td></tr>
+          <tr><td>빵식</td><td>식빵</td><td>밀색 #F3E4C4 · 크러스트 #E3BE8A</td><td>뻔뻔 (반눈 + 씩)</td><td>루피(반전 표정), 포테토뭉(사물)</td><td>위에 툭 앉음</td><td>잼</td></tr>
+          <tr><td>삐약</td><td>병아리</td><td>연노랑 #FBEBB5</td><td>듀아아 (눈물)</td><td>가나디(울보), 찌그렁 오리</td><td>삐약 튀어나옴</td><td>씨앗</td></tr>
+          <tr><td>홀</td><td>꼬마 유령</td><td>흰색 #FFFFFF</td><td>멍 + o 입</td><td>낙서파 흰 캐릭터, 옴팡이</td><td>스르륵 떠오름</td><td>별사탕</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="notes">
+    <section>
+      <h3>다섯 안의 공통 규칙</h3>
+      <ul>
+        <li>몸은 흰색·아이보리·연한 파스텔 하나. 색은 볼 터치와 소품에만.</li>
+        <li>눈은 점 또는 선. 감정은 눈썹·눈물·땀·입 모양으로.</li>
+        <li>손그림 선은 일부러 흔들리게. 선 없음도 가능(위 토글).</li>
+        <li>표정 4종(기본·듀아아·뻔뻔·멍)은 어느 캐릭터에도 같은 파츠로 붙는다.</li>
+      </ul>
+    </section>
+    <section>
+      <h3>고르면 다음에 하는 것</h3>
+      <ul>
+        <li>이름 확정, 정면·측면 턴어라운드 1장, 표정 8종 시트.</li>
+        <li>Peekaboo 상태(충전·등장·대기·탭·수집)별 자세를 이 캐릭터로 다시 매핑.</li>
+        <li><code>app.js</code>의 <code>drawCharacter()</code>를 three.js 오프스크린 렌더로 교체.</li>
+      </ul>
+    </section>
+    <section>
+      <h3>저작권</h3>
+      <p>다섯 안 모두 기존 캐릭터를 본뜨지 않은 새 설계입니다. 벤치마크는 "인기 요인"만 가져왔고 실루엣과 얼굴 배치는 새로 잡았습니다.</p>
+    </section>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.158.0/three.min.js"></script>
+<script>
+(function () {
+  document.querySelectorAll('.dots').forEach((el) => { const n = +el.dataset.s; el.innerHTML = '●'.repeat(n) + '<span>' + '●'.repeat(5 - n) + '</span>'; });
+  if (!window.THREE) { document.querySelectorAll('.name').forEach((el) => { el.textContent = 'three.js 로드 실패'; }); return; }
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const state = { line: true, expr: 'own' };
+  const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+
+  let ramp = null;
+  function toonRamp() { if (ramp) return ramp; ramp = new THREE.DataTexture(new Uint8Array([200, 232, 255]), 3, 1, THREE.RedFormat); ramp.minFilter = ramp.magFilter = THREE.NearestFilter; ramp.needsUpdate = true; return ramp; }
+  const INK = '#3B322C', CHEEK = '#F6A6AE', TEAR = '#8FC6F0', MOUTH_IN = '#E5747E';
+  const toon = (hex) => new THREE.MeshToonMaterial({ color: new THREE.Color(hex), gradientMap: toonRamp() });
+  const flat = (hex, o) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex), ...(o || {}) });
+
+  function sphere(p, r, s, seg) { const g = new THREE.SphereGeometry(r, seg || 32, Math.round((seg || 32) * 0.75)); if (s) g.scale(s[0], s[1], s[2]); g.translate(p[0], p[1], p[2]); return g; }
+  function capsule(a, b, r) {
+    const A = V3(a), B = V3(b), dir = B.clone().sub(A), len = dir.length(); dir.normalize();
+    const g = new THREE.CapsuleGeometry(r, len, 4, 20);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir));
+    const m = A.add(B).multiplyScalar(0.5); g.translate(m.x, m.y, m.z); return g;
+  }
+  function box(p, w, h, d) { const g = new THREE.BoxGeometry(w, h, d, 4, 4, 4); g.translate(p[0], p[1], p[2]); return g; }
+  function bar(p, w, h, d, rotZ) { const g = new THREE.BoxGeometry(w, h, d); g.rotateZ(rotZ || 0); g.translate(p[0], p[1], p[2]); return g; }
+  function arc(p, r, tube, flip, rotZ) { const g = new THREE.TorusGeometry(r, tube, 6, 14, Math.PI); g.rotateZ((flip ? Math.PI : 0) + (rotZ || 0)); g.translate(p[0], p[1], p[2]); return g; }
+  function ring(p, r, tube) { const g = new THREE.TorusGeometry(r, tube, 6, 18); g.translate(p[0], p[1], p[2]); return g; }
+  function cone(p, r, h, hex) { const g = new THREE.ConeGeometry(r, h, 14); g.rotateX(Math.PI / 2); g.translate(p[0], p[1], p[2]); return g; }
+  function outline(g, d) {
+    const o = g.clone(); const p = o.attributes.position, n = o.attributes.normal;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const k = d * (1 + 0.22 * Math.sin(x * 9.1 + y * 6.3) * Math.cos(z * 7.7 + y * 4.1));
+      p.setXYZ(i, x + n.getX(i) * k, y + n.getY(i) * k, z + n.getZ(i) * k);
+    }
+    p.needsUpdate = true; return o;
+  }
+
+  // 공통 얼굴 파츠. face = { ex, ey, my, at(x,y) → z } 표정은 state.expr 또는 캐릭터 기본
+  function face(G, F, own, opts) {
+    const o = opts || {};
+    const ink = (geom, hex, mo) => { const m = new THREE.Mesh(geom, flat(hex || INK, mo)); G.add(m); return m; };
+    const eyes = [];
+    const eye = (s, r, dy) => { const g = sphere([s * F.ex, F.ey + (dy || 0), F.at(F.ex, F.ey) + 0.01], r, [1, 1.15, 0.5], 18); const m = ink(g); g.computeBoundingBox(); const c = g.boundingBox.getCenter(new THREE.Vector3()); g.translate(-c.x, -c.y, -c.z); m.position.copy(c); eyes.push(m); };
+    const expr = state.expr === 'own' ? own : state.expr;
+    const mz = F.at(0, F.my) + 0.03;
+    if (!o.noCheek) for (const s of [-1, 1]) ink(sphere([s * F.cx, F.cy, F.at(F.cx, F.cy) + 0.02], 0.15, [1, 0.7, 0.25]), CHEEK);
+    if (expr === 'wail') {
+      for (const s of [-1, 1]) ink(arc([s * F.ex, F.ey, F.at(F.ex, F.ey) + 0.01], 0.05, 0.013, false));
+      for (const s of [-1, 1]) ink(bar([s * (F.ex + 0.01), F.ey + 0.16, F.at(F.ex, F.ey + 0.16) + 0.005], 0.13, 0.022, 0.03, -s * 0.5));
+      for (const s of [-1, 1]) ink(capsule([s * (F.ex + 0.03), F.ey - 0.06, F.at(F.ex, F.ey - 0.06) + 0.02], [s * (F.ex + 0.06), F.ey - 0.45, F.at(F.ex, F.ey - 0.45) + 0.02], 0.035), TEAR, { transparent: true, opacity: 0.92 });
+      if (!o.noMouth) { ink(sphere([0, F.my - 0.02, mz], 0.075, [1.15, 1, 0.3], 20)); ink(sphere([0, F.my - 0.045, mz + 0.012], 0.045, [1, 0.6, 0.3], 16), MOUTH_IN); }
+    } else if (expr === 'smug') {
+      eye(-1, 0.05); eye(1, 0.05);
+      for (const s of [-1, 1]) ink(bar([s * F.ex, F.ey + 0.035, F.at(F.ex, F.ey + 0.035) + 0.03], 0.13, 0.05, 0.03, s * 0.12), o.body);
+      for (const s of [-1, 1]) ink(bar([s * F.ex, F.ey + 0.06, F.at(F.ex, F.ey + 0.06) + 0.035], 0.13, 0.022, 0.03, s * 0.12));
+      if (!o.noMouth) ink(arc([0.03, F.my + 0.03, mz], 0.05, 0.012, true, -0.35));
+    } else if (expr === 'closed') { // 두더지 기본: 감은 선 눈 + 땀
+      for (const s of [-1, 1]) ink(bar([s * F.ex, F.ey, F.at(F.ex, F.ey) + 0.01], 0.11, 0.024, 0.03, s * -0.12));
+      ink(sphere([F.ex + 0.35, F.ey + 0.35, F.at(F.ex + 0.35, F.ey + 0.35) - 0.01], 0.045, [0.7, 1.3, 0.6], 16), TEAR, { transparent: true, opacity: 0.9 });
+    } else if (expr === 'oh') { // 유령 기본: 점 눈 + o 입
+      eye(-1, 0.05); eye(1, 0.05);
+      ink(ring([0, F.my, mz], 0.045, 0.014));
+    } else { // blank
+      eye(-1, 0.05); eye(1, 0.05);
+      if (!o.noMouth) for (const s of [-1, 1]) ink(arc([s * 0.032, F.my, mz], 0.03, 0.01, true));
+    }
+    G.userData.eyes = eyes;
+  }
+  const ell = (B) => { const sx = B.r * B.s[0], sy = B.r * B.s[1], sz = B.r * B.s[2]; return (x, y) => B.c[2] + sz * Math.sqrt(Math.max(0.03, 1 - ((x - B.c[0]) / sx) ** 2 - ((y - B.c[1]) / sy) ** 2)); };
+
+  // ---- 다섯 캐릭터 ----
+  const CHARS = {
+    mole(G, solid) {
+      const body = '#D8CDBE', paw = '#EBD4CA';
+      const B = { c: [0, -0.3, 0], r: 0.72, s: [1, 1.05, 0.92] };
+      solid(sphere(B.c, B.r, B.s, 48), body, 0.035);
+      for (const s of [-1, 1]) solid(sphere([s * 0.5, -0.55, 0.62], 0.2, [1.25, 0.7, 1]), paw, 0.03); // 큰 앞발
+      const at = ell(B);
+      solid(sphere([0, -0.42, at(0, -0.42) + 0.02], 0.085, [1.25, 0.9, 0.6]), '#F2A6B0', 0.02); // 분홍 코
+      face(G, { ex: 0.24, ey: -0.12, my: -0.5, cx: 0.42, cy: -0.4, at }, 'closed', { noMouth: true, body });
+      return { ground: 'mound' };
+    },
+    seal(G, solid) {
+      const body = '#FFFFFF';
+      const H = { c: [0, -0.45, 0.55], r: 0.62, s: [1.05, 0.9, 0.9] };
+      solid(sphere([0, -0.62, -0.35], 0.9, [0.95, 0.55, 1.4], 48), body, 0.035); // 몸통
+      solid(sphere(H.c, H.r, H.s, 48), body, 0.035); // 머리
+      for (const s of [-1, 1]) solid(sphere([s * 0.72, -1.0, 0.35], 0.26, [1.2, 0.3, 0.8]), body, 0.03); // 앞지느러미
+      for (const s of [-1, 1]) solid(sphere([s * 0.26, -1.0, -1.7], 0.3, [0.6, 0.25, 1.0]), body, 0.03); // 꼬리
+      const at = ell(H);
+      const ink = (g, hex) => G.add(new THREE.Mesh(g, flat(hex || INK)));
+      ink(sphere([0, -0.5, at(0, -0.5) + 0.02], 0.04, [1.2, 0.9, 0.6], 14)); // 코
+      for (const s of [-1, 1]) for (let i = 0; i < 3; i++) ink(sphere([s * (0.28 + i * 0.09), -0.62 + (i - 1) * 0.04, at(0.28 + i * 0.09, -0.62) + 0.02], 0.014, null, 8)); // 수염 점
+      face(G, { ex: 0.24, ey: -0.32, my: -0.62, cx: 0.44, cy: -0.55, at }, 'blank', { body });
+      return { ground: 'flat' };
+    },
+    loaf(G, solid) {
+      const crumb = '#F3E4C4', crust = '#E3BE8A';
+      solid(box([0, -0.58, 0], 1.7, 0.84, 1.2), crumb, 0.035);
+      solid(sphere([0, -0.18, 0], 0.86, [0.99, 0.62, 0.7], 48), crust, 0.035); // 윗면 크러스트
+      for (const s of [-1, 1]) solid(sphere([s * 0.4, -1.02, 0.5], 0.22, [1, 0.45, 1.2]), crumb, 0.03); // 발
+      const at = () => 0.6;
+      face(G, { ex: 0.3, ey: -0.36, my: -0.66, cx: 0.6, cy: -0.6, at }, 'smug', { body: crumb });
+      return { ground: 'flat' };
+    },
+    chick(G, solid) {
+      const body = '#FBEBB5', orange = '#F5A45C';
+      const B = { c: [0, -0.3, 0], r: 0.85, s: [1, 0.95, 0.9] };
+      solid(sphere(B.c, B.r, B.s, 48), body, 0.035);
+      for (const s of [-1, 1]) solid(sphere([s * 0.82, -0.5, 0.1], 0.3, [0.4, 0.7, 1]), body, 0.03); // 날개
+      for (const s of [-1, 1]) solid(sphere([s * 0.3, -1.12, 0.4], 0.22, [1, 0.25, 1.4]), orange, 0.02); // 발
+      for (const d of [-0.1, 0, 0.1]) solid(capsule([0, 0.45, 0], [d * 1.6, 0.78, 0], 0.028), '#E8C96A', 0); // 털 세 가닥
+      const at = ell(B);
+      solid(cone([0, -0.33, at(0, -0.33) + 0.06], 0.075, 0.16), orange, 0.02); // 부리
+      face(G, { ex: 0.27, ey: -0.12, my: -0.5, cx: 0.5, cy: -0.42, at }, 'wail', { noMouth: true, body });
+      return { ground: 'flat' };
+    },
+    ghost(G, solid) {
+      const body = '#FFFFFF';
+      const B = { c: [0, 0.1, 0], r: 0.8, s: [1, 1, 0.9] };
+      solid(sphere(B.c, B.r, B.s, 48), body, 0.035);
+      const cyl = new THREE.CylinderGeometry(0.8, 0.72, 0.75, 40, 1, true); cyl.scale(1, 1, 0.9); cyl.translate(0, -0.27, 0); solid(cyl, body, 0.035);
+      for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2 + 0.2; solid(sphere([Math.cos(a) * 0.55, -0.66, Math.sin(a) * 0.5], 0.23, [1, 0.8, 1]), body, 0.03); } // 물결 밑단
+      for (const s of [-1, 1]) solid(capsule([s * 0.74, -0.05, 0.2], [s * 0.95, -0.28, 0.3], 0.11), body, 0.03); // 팔 돌기
+      const at = ell(B);
+      face(G, { ex: 0.26, ey: 0.05, my: -0.24, cx: 0.48, cy: -0.14, at }, 'oh', { body });
+      return { ground: 'float' };
+    },
+  };
+
+  function build(kind) {
+    const G = new THREE.Group();
+    const solid = (geom, hex, d) => { G.add(new THREE.Mesh(geom, toon(hex))); if (state.line && d && d >= 0.03) G.add(new THREE.Mesh(outline(geom, d), new THREE.MeshBasicMaterial({ color: new THREE.Color(INK), side: THREE.BackSide }))); };
+    const info = CHARS[kind](G, solid);
+    G.userData.info = info; return G;
+  }
+  function blob(size, y) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+    const c = cv.getContext('2d'), g = c.createRadialGradient(64, 64, 6, 64, 64, 64);
+    g.addColorStop(0, 'rgba(40,30,20,.22)'); g.addColorStop(1, 'rgba(40,30,20,0)');
+    c.fillStyle = g; c.fillRect(0, 0, 128, 128);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2; m.position.y = y; return m;
+  }
+
+  const cards = [];
+  document.querySelectorAll('.card').forEach((card) => {
+    const kind = card.dataset.kind, view = card.querySelector('.view'), canvas = card.querySelector('canvas');
+    let renderer;
+    try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); }
+    catch (e) { card.querySelector('.name').textContent = 'WebGL 사용 불가'; return; }
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 50);
+    camera.position.set(0, 0.6, 6.8); camera.lookAt(0, -0.3, 0);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xe8e2d8, 1.25));
+    const k = new THREE.DirectionalLight(0xffffff, 1.5); k.position.set(2, 3, 4); scene.add(k);
+    scene.add(blob(3.4, -1.15));
+    const statics = new THREE.Group(); scene.add(statics);
+    if (kind === 'mole') { // 흙무더기
+      const mound = sphere([0, -1.05, 0], 1.0, [1, 0.42, 0.9], 40);
+      statics.add(new THREE.Mesh(mound, toon('#B99671')));
+      if (state.line) statics.add(new THREE.Mesh(outline(mound, 0.035), new THREE.MeshBasicMaterial({ color: new THREE.Color(INK), side: THREE.BackSide })));
+      const hole = new THREE.Mesh(new THREE.CircleGeometry(0.66, 32), flat('#5A4634')); hole.rotation.x = -Math.PI / 2; hole.position.set(0, -0.62, 0); statics.add(hole);
+    }
+    const c = { kind, card, view, renderer, scene, camera, statics, fig: null, rotY: kind === 'seal' ? -0.7 : -0.2, rotX: 0, dragging: false, moved: 0, lastX: 0, lastY: 0, sy: 1, vy: 0, tilt: 0, vt: 0, blinkAt: 2 + Math.random() * 2, duckAt: 6 + Math.random() * 3, duck: 0 };
+    const resize = () => { const w = view.clientWidth, h = view.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
+    new ResizeObserver(resize).observe(view); resize();
+    view.addEventListener('pointerdown', (e) => { c.dragging = true; c.moved = 0; c.lastX = e.clientX; c.lastY = e.clientY; view.setPointerCapture(e.pointerId); });
+    view.addEventListener('pointermove', (e) => {
+      if (!c.dragging) return;
+      const dx = e.clientX - c.lastX, dy = e.clientY - c.lastY; c.lastX = e.clientX; c.lastY = e.clientY; c.moved += Math.abs(dx) + Math.abs(dy);
+      c.rotY += dx * 0.012; c.rotX = Math.max(-0.4, Math.min(0.4, c.rotX + dy * 0.006));
+    });
+    const up = (e) => { if (c.dragging && c.moved < 6) poke(c, e); c.dragging = false; };
+    view.addEventListener('pointerup', up); view.addEventListener('pointercancel', () => { c.dragging = false; });
+    view.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') c.rotY -= 0.3; if (e.key === 'ArrowRight') c.rotY += 0.3; if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); poke(c); } });
+    cards.push(c);
+  });
+  function poke(c, e) {
+    c.vy -= 3.2; let side = Math.random() < 0.5 ? -1 : 1;
+    if (e) { const r = c.view.getBoundingClientRect(); side = (e.clientX - r.left) / r.width < 0.5 ? 1 : -1; }
+    c.vt += side * 1.6; if (c.kind === 'mole') c.duckAt = performance.now() / 1000;
+  }
+  function rebuild() {
+    for (const c of cards) {
+      if (c.fig) { c.scene.remove(c.fig); c.fig.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } }); }
+      c.fig = build(c.kind); c.scene.add(c.fig);
+      c.statics.children.forEach((m) => { if (m.material.side === THREE.BackSide) m.visible = state.line; });
+    }
+  }
+  rebuild();
+  document.querySelectorAll('.seg button[data-line]').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('.seg button[data-line]').forEach((x) => x.setAttribute('aria-checked', x === b ? 'true' : 'false'));
+    state.line = b.dataset.line === '1'; rebuild();
+  }));
+  document.querySelectorAll('.seg button[data-expr]').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('.seg button[data-expr]').forEach((x) => x.setAttribute('aria-checked', x === b ? 'true' : 'false'));
+    state.expr = b.dataset.expr; rebuild();
+  }));
+
+  const smooth = (v) => v * v * (3 - 2 * v);
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; const t = now / 1000;
+    for (const c of cards) {
+      if (!c.fig) continue;
+      c.vy += (-90 * (c.sy - 1) - 7 * c.vy) * dt; c.sy += c.vy * dt; c.sy = Math.max(0.4, c.sy);
+      c.vt += (-90 * c.tilt - 7 * c.vt) * dt; c.tilt += c.vt * dt;
+      const sxz = 1 / Math.sqrt(Math.max(0.3, c.sy));
+      // 바닥(-1.15)에 붙은 채 찌그러진다. 유령은 떠 있으므로 중심 기준
+      let x = 0, rz = c.tilt * 0.3, y = c.kind === 'ghost' ? 0.6 * (c.sy - 1) : 1.15 * (c.sy - 1);
+      let ry = c.dragging || reduced ? c.rotY : c.rotY + 0.18 * Math.sin(t * 0.5 + c.rotY);
+      if (!reduced) {
+        if (c.kind === 'chick') { x += 0.012 * Math.sin(t * 40); y += 0.03 * Math.abs(Math.sin(t * 6)); }
+        if (c.kind === 'seal') rz += 0.02 * Math.sin(t * 1.3);
+        if (c.kind === 'loaf') y += 0.006 * Math.sin(t * 2.0);
+        if (c.kind === 'ghost') { y += 0.08 * Math.sin(t * 1.6); rz += 0.05 * Math.sin(t * 0.9); }
+        if (c.kind === 'mole') {
+          const d = t - c.duckAt;
+          if (d >= 0 && d < 1.1) c.duck = d < 0.15 ? smooth(d / 0.15) : d < 0.7 ? 1 : 1 - smooth((d - 0.7) / 0.4);
+          else if (d >= 1.1) { c.duck = 0; c.duckAt = t + 2.5 + Math.random() * 3; }
+          y += -0.75 * c.duck + 0.015 * Math.sin(t * 2.6);
+        }
+      }
+      const breathe = c.kind === 'seal' && !reduced ? 1 + 0.02 * Math.sin(t * 1.6) : 1;
+      c.fig.scale.set(sxz, c.sy * breathe, sxz);
+      c.fig.position.set(x, y, 0);
+      c.fig.rotation.set(c.rotX, ry, rz);
+      if (!reduced && t > c.blinkAt) { const open = t > c.blinkAt + 0.12; for (const e of c.fig.userData.eyes) e.scale.y = open ? 1 : 0.15; if (open) c.blinkAt = t + 2.5 + Math.random() * 3; }
+      c.renderer.render(c.scene, c.camera);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>

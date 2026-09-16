@@ -63,6 +63,8 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 
 `docs/preview/emoticon-lab.html` benchmarks the top KakaoTalk emoticons (Dyu Ganadi, Broken Bear, Zanmang Loopy, Nagano bear, Choonsik, Tomong the talking potato, plus the 2025 doodle-style risers) in a table and renders their shared grammar as a six-cell 3D emoticon sheet: wailing, slumped, smug, blank, lying flat, peeking. Ivory body by default, hand-drawn wobbly outline toggle, seven body colors.
 
+`docs/preview/base-lab.html` proposes five new base characters instead of restyling the cat: a mole popping out of a mound, a seal pup lying flat, a bread loaf, a crying chick, and a small ghost. Each is built in the same emoticon grammar, scored on derpiness, trend fit and entrance, and compared in a table. Recommendation: the mole first, the seal second.
+
 ## Not yet verified on a phone
 
 - Detection / segmentation Hz, heat, and mask flicker on real Android Chrome (if flicker is bad, set `MASK_EMA` in `app.js` to 0.7).
