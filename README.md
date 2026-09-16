@@ -57,6 +57,8 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 
 `docs/preview/character-lab.html` renders the soot-sprite replacement candidate — a round yellow cat motif — in five 3D styles (cel toon, jelly, clay, low-poly, voxel) with three.js, all from one shared parts definition and no image assets. Open it from GitHub Pages at `/peekaboo/docs/preview/character-lab.html`. Drag to rotate; the six body-color chips are the candy colors from `SPRITES`.
 
+`docs/preview/squishy-lab.html` narrows that to the clay and jelly line, pushed toward the squishy-toy look: three materials (mochi, pudding jelly, clay dough) driven by two sliders, *derpiness* (flatter body, small far-apart eyes, stub arms) and *squishiness* (poke squash depth and spring damping). Tap a model to poke it.
+
 ## Not yet verified on a phone
 
 - Detection / segmentation Hz, heat, and mask flicker on real Android Chrome (if flicker is bad, set `MASK_EMA` in `app.js` to 0.7).
