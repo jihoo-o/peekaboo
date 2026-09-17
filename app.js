@@ -9,6 +9,7 @@
 // S10: 큰 물체는 옆에서 등장(화면 위 여유 없을 때) + 한 번 맞춘 물체는 이후 즉시 등장
 // S11: 짠! 대신 스을쩍 — 물체에 완전히 가려진 위치에서 뒤뚱거리며 걸어 나오고, 중간에 한 번 움찔 물러난다
 // S12: 패럴랙스 — 평소엔 반쯤 숨어 있고, 폰을 옆·위로 움직이면(물체가 화면에서 치우치면) 뒤에 숨은 캐릭터가 더 드러난다
+// S18: 원본(공식) 에셋 우선 — manifest 항목에 file/scale/dy/wave 지정 가능, wave 전용 그림 지원, 파일이 있으면 캔버스 드로잉은 쓰지 않는다
 // S17: 실제 등장 캐릭터 기준으로 도감 정정(14종)하고, 종마다 캔버스로 알아볼 수 있게 그린다(drawSpecies). ?skin=silhouette 이면 예전 실루엣
 // S16: 등장 후엔 캐릭터에 집중 — 발광은 사그라들고, 캐릭터 주변만 밝은 스포트라이트(나머지 어둡게), 캐릭터는 불투명, 검출 박스는 ?debug=1일 때만
 // S15: 타깃 못 잡는 문제 — 스캔은 딱 5초, 그동안 본 물체 중에서만 선정. 자이로로 물체 방향을 기억해 화면 밖이면 상하좌우 엣지 발광으로 카메라를 유도
@@ -56,7 +57,7 @@ const PARALLAX_Y = 0.35;   // 세로 최대 이동 = bbox 높이 × 이 값 (위
 const PARALLAX_SMOOTH = 0.12;
 // S13: 먼작귀 도감. 이름은 팬 위키 기준 가칭이며 라이선스 시 공식 캐릭터 시트로 교체한다(docs/preview/chiikawa-lab.html).
 // objects = 이 종이 사는 물체(COCO 라벨). 비어 있으면 어디서도 안 나오고 night 종은 심야(22~05시)에만 어디서든 낮은 확률로 나온다.
-const SKIN = { id: 'chiikawa', dir: './assets/skins/chiikawa/', ext: 'png' }; // <dir>/manifest.json 에 적힌 id의 PNG를 그린다. 없으면 실루엣
+const SKIN = { id: 'chiikawa', dir: './assets/skins/chiikawa/', ext: 'png' }; // <dir>/manifest.json 에 적힌 id의 원본 그림을 그린다. 없으면 캔버스 드로잉(S17)
 const RARITY = {
   C: { name: '흔함', w: 10, color: '#B8B2A8' },
   U: { name: '보통', w: 5,  color: '#5FA36E' },
@@ -123,6 +124,7 @@ const state = {
   near: 0,                                  // 0~1 대상 물체와의 가까움(bbox 폭 기준)
   playStart: 0, lastLockAt: 0,              // S14: 힌트 타이머
   edge: null,                               // S15: 마지막 엣지 힌트
+  skins: null,                              // S18: 로드된 원본 에셋 id 목록
   parallax: { x: 0, y: 0 },                 // S12: 스무딩된 화면 내 치우침 (-1~1)
   collection: store.get('collection', []).filter((c) => SPECIES.some((s) => s.id === c.id)),  // [{ id, label, at, night }] S13: 옛 별사탕 id는 버림
   hits: 0,                                  // 현재 락의 연속 매칭 횟수
@@ -577,21 +579,26 @@ function pickSprite() {
 }
 state.pickSprite = pickSprite; // 디버그용
 
-// S13: 스킨 이미지. manifest.json에 적힌 id만 로드한다(없는 파일로 404를 내지 않기 위해).
-const skinImages = {}; // id → HTMLImageElement | null
+// S13/S18: 원본 에셋. manifest.json에 적힌 항목만 로드한다(없는 파일로 404를 내지 않기 위해).
+// 항목은 "id" 문자열 또는 { id, file?, scale?, dy?, wave? }:
+//   file  = 파일명(기본 <id>.png), wave = 손 흔들 때 그림(기본 <id>_wave.png 가 있으면 자동), scale = 폭 배율(기본 1.1), dy = 하단 기준 세로 오프셋(폭 대비, 기본 0)
+const skinImages = {}; // id → { img, wave, scale, dy } | null
+function loadImage(src) { return new Promise((res) => { const img = new Image(); img.onload = () => res(img); img.onerror = () => res(null); img.src = src; }); }
 async function loadSkin() {
-  if (params.get('skin') === 'none') return;
+  if (params.get('skin') === 'none' || params.get('skin') === 'silhouette') return;
   try {
     const res = await fetch(SKIN.dir + 'manifest.json', { cache: 'no-cache' });
     if (!res.ok) return;
-    const ids = await res.json();
-    for (const id of ids) {
-      if (!speciesById(id)) continue;
-      const img = new Image();
-      img.onload = () => { skinImages[id] = img; };
-      img.onerror = () => { skinImages[id] = null; };
-      img.src = `${SKIN.dir}${id}.${SKIN.ext}`;
+    const list = await res.json();
+    for (const entry of list) {
+      const e = typeof entry === 'string' ? { id: entry } : entry;
+      if (!e?.id || !speciesById(e.id)) continue;
+      const img = await loadImage(SKIN.dir + (e.file ?? `${e.id}.${SKIN.ext}`));
+      if (!img) { skinImages[e.id] = null; console.warn('skin missing', e.id); continue; }
+      const wave = e.wave === false ? null : await loadImage(SKIN.dir + (e.wave ?? `${e.id}_wave.${SKIN.ext}`));
+      skinImages[e.id] = { img, wave, scale: e.scale ?? 1.1, dy: e.dy ?? 0 };
     }
+    state.skins = Object.keys(skinImages).filter((k) => skinImages[k]);
   } catch (e) { console.warn('skin manifest', e); }
 }
 loadSkin();
@@ -660,7 +667,7 @@ function drawCandy(ctx, x, y, rr, color, t) {
 // opts: { sprite, collected, waving, collecting, collectT, tilt }
 function drawCharacter(ctx, cx, cy, size, t, opts = {}) {
   const sp = opts.sprite;
-  if (sp && skinImages[sp.id]) return drawSkin(ctx, skinImages[sp.id], cx, cy, size, t, opts);
+  if (sp && skinImages[sp.id]) return drawSkin(ctx, skinImages[sp.id], cx, cy, size, t, opts); // S18: 원본 에셋 우선
   if (sp) return params.get('skin') === 'silhouette' ? drawPlaceholder(ctx, sp, cx, cy, size, t, opts) : drawSpecies(ctx, sp, cx, cy, size, t, opts); // S17
   return drawSoot(ctx, cx, cy, size, t, opts);
 }
@@ -974,14 +981,15 @@ function drawBadges(ctx, cx, bodyCy, r, size, t, opts) {
   }
 }
 // 공식 PNG 스킨. 투명 배경, 하단 중심 정렬. 폭을 size에 맞추고 뒤뚱거림·흔들기는 회전으로.
-function drawSkin(ctx, img, cx, cy, size, t, opts) {
+function drawSkin(ctx, skin, cx, cy, size, t, opts) {
   const r = size / 2, bodyCy = cy - r;
-  const w = size * 1.1, h = w * (img.naturalHeight / img.naturalWidth);
-  const wobble = (opts.waving ? Math.sin(t / 60) * 0.08 : 0) + (opts.tilt ?? 0);
+  const img = (opts.waving && skin.wave) || skin.img; // S18: wave 전용 그림이 있으면 흔들 때 교체
+  const w = size * skin.scale, h = w * (img.naturalHeight / img.naturalWidth);
+  const wobble = ((opts.waving && !skin.wave) ? Math.sin(t / 60) * 0.08 : 0) + (opts.tilt ?? 0);
   ctx.save();
   ctx.globalAlpha = 1; // S16: 미수집도 불투명(구분은 '!' 말풍선)
   ctx.translate(cx, cy); ctx.rotate(wobble); ctx.translate(-cx, -cy);
-  ctx.drawImage(img, cx - w / 2, cy - h, w, h);
+  ctx.drawImage(img, cx - w / 2, cy - h + size * skin.dy, w, h);
   drawBadges(ctx, cx, bodyCy, r, size, t, opts);
   ctx.restore();
 }
@@ -1209,6 +1217,7 @@ function render(t) {
     `mask ${USE_MASK ? (state.mask ? 'on' : 'none') : 'off'} | rej ${state.maskRejects}\n` +
     `phase ${state.phase} | home ${state.home?.label ?? '-'}${state.home?.solved ? '✓' : ''} | near ${state.near.toFixed(2)} | hits ${state.hits}\n` +
     `sprite ${state.char.sprite?.id ?? '-'}${isNight() ? ' night' : ''} | col ${state.collection.length}/${SPECIES.length} | px ${state.parallax.x.toFixed(2)} py ${state.parallax.y.toFixed(2)}\n` +
+    `skin ${state.skins ? state.skins.length + '/' + SPECIES.length : '-'} | ` +
     `gyro ${orient.ok ? (orient.abs ? 'abs ' : 'rel ') + orient.heading.toFixed(0) + '°/' + orient.pitch.toFixed(0) + '°' : '-'} | target ${state.home?.orient ? state.home.orient.heading.toFixed(0) + '°/' + state.home.orient.pitch.toFixed(0) + '°' : '-'} | edge ${state.edge ? ['left','right','top','bottom'].filter((k) => state.edge[k]).join(',') || 'none' : '-'}` +
     (state.error ? `\nERR ${state.error}` : '');
   requestAnimationFrame(render);

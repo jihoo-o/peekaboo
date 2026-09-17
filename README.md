@@ -49,6 +49,7 @@ HUD (top-left): detection Hz · segmentation Hz · render fps · delegate · loc
 | S15 | 5-second scan, gyro target direction memory, edge glow hints when the target is out of frame ([ADR-0020](docs/adr/0020-five-second-scan-and-edge-direction-hint.md)) | `S15: edge direction hints` |
 | S16 | Focus after appearance: glow fades to 15%, spotlight vignette around the sprite, opaque sprite, debug boxes opt-in, hint moved above the shutter ([ADR-0021](docs/adr/0021-focus-on-character-after-appearance.md)) | `S16: focus on the character` |
 | S17 | Roster corrected to 14 actual characters and each drawn recognizably on canvas (`drawSpecies`); silhouettes via `?skin=silhouette` ([ADR-0022](docs/adr/0022-drawn-chiikawa-roster.md)) | `S17: drawn chiikawa roster` |
+| S18 | Original (official) assets first: manifest entries with `file`/`scale`/`dy`/`wave`, wave-pose swap, pipeline verified with dummy PNGs; drawings only as fallback ([ADR-0023](docs/adr/0023-original-assets-only.md)) | `S18: original assets first` |
 
 ## Verification (headless Chromium + fake camera)
 
@@ -93,6 +94,10 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 - Detection / segmentation Hz, heat, and mask flicker on real Android Chrome (if flicker is bad, set `MASK_EMA` in `app.js` to 0.7).
 - The `navigator.share` file-sharing path (headless only exercised the download fallback).
 - iOS Safari.
+
+## Official character assets (collaboration)
+
+The characters must be the rights holder's original artwork, not recreations. Drop the files into `assets/skins/chiikawa/` and list them in `manifest.json`; the app then renders those images everywhere (scene, dex panel, shared photo). Spec and manifest options: [assets/skins/chiikawa/README.md](assets/skins/chiikawa/README.md). Species without a file fall back to the canvas drawing.
 
 ## Decision records
 
