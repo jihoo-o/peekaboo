@@ -50,6 +50,7 @@ HUD (top-left): detection Hz · segmentation Hz · render fps · delegate · loc
 | S16 | Focus after appearance: glow fades to 15%, spotlight vignette around the sprite, opaque sprite, debug boxes opt-in, hint moved above the shutter ([ADR-0021](docs/adr/0021-focus-on-character-after-appearance.md)) | `S16: focus on the character` |
 | S17 | Roster corrected to 14 actual characters and each drawn recognizably on canvas (`drawSpecies`); silhouettes via `?skin=silhouette` ([ADR-0022](docs/adr/0022-drawn-chiikawa-roster.md)) | `S17: drawn chiikawa roster` |
 | S18 | Original (official) assets first: manifest entries with `file`/`scale`/`dy`/`wave`, wave-pose swap, pipeline verified with dummy PNGs; drawings only as fallback ([ADR-0023](docs/adr/0023-original-assets-only.md)) | `S18: original assets first` |
+| S19 | Load original artwork on the device itself (dex panel → file picker → IndexedDB); nothing is uploaded or committed ([ADR-0024](docs/adr/0024-on-device-original-assets.md)) | `S19: on-device original assets` |
 
 ## Verification (headless Chromium + fake camera)
 
@@ -61,6 +62,7 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 
 - Confirmed: scan → `cup` chosen and stored, `cup` detected at 0.69 and locked, glow drawn behind it, charging → pop → idle, the mask hides the sprite along the cup's curved rim, first tap → `collect` (collection 1/6 persisted in localStorage), second tap → `wave`, shutter → `peekaboo-<ts>.jpg` download.
 - S13 (headless, Chromium fake camera, models blocked in the container so the lock was injected): `cup` lock → sneak → idle with species `chiikawa`; 400 draws of the species picker for `cup` gave chiikawa 257 · kurimanju 104 · yoroi_ramen 39, matching the 10:5:2 rarity weights; tap → `collect`, badge ★ 1/15, `peekaboo.collection` persisted with `night:false`; shutter → JPEG with the `치이카와 · 흔함 #Peekaboo` stamp; dex panel shows 주역 1/3 · 친구 0/9 · 갑옷 0/3 with rarity dots and silhouettes.
+- Original-asset path with a dummy test PNG loaded on the device (S19; the real files are the rights holder's): ![](docs/verify/s19-on-device-asset.png)
 - All 14 species as drawn by `drawSpecies` (S17): ![](docs/verify/s17-species-sheet.png)
 - Spotlight after the sprite appears (glow faded, background darkened, sprite opaque): ![](docs/verify/s16-spotlight.png) ![](docs/verify/s16-spotlight-side.png)
 - Edge direction hint when the target is out of frame: ![](docs/verify/s15-edge-hint.png) (S15; synthetic gyro, target 60° to the right).
@@ -97,7 +99,12 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 
 ## Official character assets (collaboration)
 
-The characters must be the rights holder's original artwork, not recreations. Drop the files into `assets/skins/chiikawa/` and list them in `manifest.json`; the app then renders those images everywhere (scene, dex panel, shared photo). Spec and manifest options: [assets/skins/chiikawa/README.md](assets/skins/chiikawa/README.md). Species without a file fall back to the canvas drawing.
+The characters must be the rights holder's original artwork, not recreations. Two ways to use them:
+
+1. **On the phone, no upload (recommended before a license is signed)**: open the ★ dex panel → **원본 그림 넣기** → pick the files (`<id>.png`, optional `<id>_wave.png`). They are stored in the browser's IndexedDB on that device only and used immediately.
+2. **In the repo**: drop the files into `assets/skins/chiikawa/` and list them in `manifest.json`.
+
+Either way the app renders those images everywhere (scene, dex panel, shared photo). Spec and manifest options: [assets/skins/chiikawa/README.md](assets/skins/chiikawa/README.md). Species without a file fall back to the canvas drawing.
 
 ## Decision records
 

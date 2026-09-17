@@ -27,3 +27,4 @@
 | [0021](0021-focus-on-character-after-appearance.md) | 등장 후 집중: 발광 15%로 감쇠, 스포트라이트 비네트, 캐릭터 불투명, 검출 박스는 ?debug=1만, 안내 문구 하단 |
 | [0022](0022-drawn-chiikawa-roster.md) | 실제 등장 캐릭터 기준 도감 14종으로 정정, 종별 캔버스 렌더러(drawSpecies). ADR-0018의 실루엣 원칙을 소유자 요청으로 뒤집음 |
 | [0023](0023-original-assets-only.md) | 협업 조건: 원본 에셋 그대로 사용(드로잉은 대체), manifest에 file/scale/dy/wave, 더미 PNG로 파이프라인 검증 |
+| [0024](0024-on-device-original-assets.md) | 원본 그림을 폰에서 직접 넣기(IndexedDB): 저장소·서버에 올리지 않고 즉시 원본 사용, 우선순위 기기 > manifest > 드로잉 |

@@ -55,6 +55,13 @@
     .slot::before { content: ''; position: absolute; top: 6px; left: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--rar, #ccc); }
     .slot.got { color: #222; background: #fff3d6; }
     .slot canvas { width: 56px; height: 56px; }
+    /* S19: 원본 그림 넣기 */
+    #skins { margin-top: 14px; padding: 10px; background: #f6f3ec; border-radius: 12px; font-size: 12px; color: #444; }
+    #skins .row { display: flex; gap: 8px; margin: 6px 0; }
+    #skins button { flex: 1; padding: 9px; border: 0; border-radius: 10px; background: #ffd54f; color: #4a3700; font-size: 13px; font-weight: 700; }
+    #skins #skinclear { flex: 0 0 auto; background: #eee; color: #666; font-weight: 400; padding: 9px 12px; }
+    #skins small { display: block; color: #777; line-height: 1.4; }
+    #skins code { background: #eee; padding: 0 4px; border-radius: 4px; }
     #reset { margin-top: 14px; width: 100%; padding: 10px; border: 0; border-radius: 10px; background: #eee; color: #c33; font-size: 13px; }
   </style>
 </head>
@@ -72,6 +79,16 @@
         <h2>먼작귀 도감</h2>
         <div id="home"></div>
         <div id="slots"></div>
+        <div id="skins">
+          <div id="skinstat"></div>
+          <div class="row">
+            <button id="skinpick">원본 그림 넣기</button>
+            <button id="skinclear">지우기</button>
+          </div>
+          <div id="skinmsg"></div>
+          <input id="skinfile" type="file" accept="image/*" multiple hidden />
+          <small>파일명 <code>&lt;id&gt;.png</code>(예: chiikawa.png), 흔들기 포즈는 <code>&lt;id&gt;_wave.png</code>. 이 기기에만 저장되고 서버·저장소에 올라가지 않습니다.</small>
+        </div>
         <button id="reset">기억한 물체·도감 초기화</button>
       </div>
     </div>

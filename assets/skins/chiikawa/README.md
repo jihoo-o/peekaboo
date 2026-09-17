@@ -2,6 +2,9 @@
 
 협업(라이선스) 조건상 캐릭터는 **재생산이 아니라 권리자에게서 받은 원본 그림을 그대로** 쓴다. 이 폴더에 파일을 넣고 `manifest.json`에 적으면 앱이 그 그림을 그린다. 파일이 없는 종만 캔버스 드로잉(`drawSpecies`)으로 대체된다. 팬메이드 그림은 넣지 않는다.
 
+## 폰에서 바로 넣기 (저장소에 올리지 않음)
+앱의 ★ 도감 패널 → **원본 그림 넣기** → 파일 선택. 같은 파일명 규칙(`<id>.png`, `<id>_wave.png`)이고, 그 기기의 IndexedDB에만 저장된다. 라이선스 전 시연은 이 방법을 쓴다.
+
 ## 파일 사양 (권리자에게 요청할 것)
 - 종 14개, 각각 `<species.id>.png` — `chiikawa`, `hachiware`, `usagi`, `momonga`, `kurimanju`, `shisa`, `rakko`, `furuhonya`, `dekatsuyo`, `pajama`, `seiren`, `yoroi_ramen`, `yoroi_info`, `yoroi_pochette`
 - 투명 배경 PNG(또는 WebP, `file`로 지정), **정면**, **발끝이 이미지 하단에 닿게**(앱이 하단 중심 정렬로 그린다), 좌우 여백은 최소로, 폭 512~1024px

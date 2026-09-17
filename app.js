@@ -9,6 +9,7 @@
 // S10: 큰 물체는 옆에서 등장(화면 위 여유 없을 때) + 한 번 맞춘 물체는 이후 즉시 등장
 // S11: 짠! 대신 스을쩍 — 물체에 완전히 가려진 위치에서 뒤뚱거리며 걸어 나오고, 중간에 한 번 움찔 물러난다
 // S12: 패럴랙스 — 평소엔 반쯤 숨어 있고, 폰을 옆·위로 움직이면(물체가 화면에서 치우치면) 뒤에 숨은 캐릭터가 더 드러난다
+// S19: 원본 에셋을 기기에서 직접 넣기 — 도감 패널의 파일 선택으로 <id>.png / <id>_wave.png 를 IndexedDB에 저장. 저장소에 올리지 않아도 폰에서 바로 원본이 뜬다
 // S18: 원본(공식) 에셋 우선 — manifest 항목에 file/scale/dy/wave 지정 가능, wave 전용 그림 지원, 파일이 있으면 캔버스 드로잉은 쓰지 않는다
 // S17: 실제 등장 캐릭터 기준으로 도감 정정(14종)하고, 종마다 캔버스로 알아볼 수 있게 그린다(drawSpecies). ?skin=silhouette 이면 예전 실루엣
 // S16: 등장 후엔 캐릭터에 집중 — 발광은 사그라들고, 캐릭터 주변만 밝은 스포트라이트(나머지 어둡게), 캐릭터는 불투명, 검출 박스는 ?debug=1일 때만
@@ -601,7 +602,73 @@ async function loadSkin() {
     state.skins = Object.keys(skinImages).filter((k) => skinImages[k]);
   } catch (e) { console.warn('skin manifest', e); }
 }
-loadSkin();
+loadSkin().then(loadLocalSkins);
+
+// ---- S19: 기기 저장 원본 에셋 (IndexedDB) ----
+const DB_NAME = 'peekaboo', DB_STORE = 'skins';
+function openDb() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(DB_STORE);
+    req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error);
+  });
+}
+async function dbAll() {
+  const db = await openDb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(DB_STORE, 'readonly'), st = tx.objectStore(DB_STORE), out = {};
+    const req = st.openCursor();
+    req.onsuccess = () => { const c = req.result; if (c) { out[c.key] = c.value; c.continue(); } else res(out); };
+    req.onerror = () => rej(req.error);
+  });
+}
+async function dbPut(entries) {
+  const db = await openDb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(DB_STORE, 'readwrite'), st = tx.objectStore(DB_STORE);
+    for (const [k, v] of entries) st.put(v, k);
+    tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error);
+  });
+}
+async function dbClear() {
+  const db = await openDb();
+  return new Promise((res, rej) => { const tx = db.transaction(DB_STORE, 'readwrite'); tx.objectStore(DB_STORE).clear(); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
+}
+// 파일명 → { id, kind }. 'chiikawa.png' → 본체, 'chiikawa_wave.png' → 흔들기. 대소문자·확장자 무시
+function parseSkinFilename(name) {
+  const m = name.toLowerCase().match(/^([a-z_]+?)(_wave)?\.(png|webp|jpg|jpeg|gif)$/);
+  if (!m || !speciesById(m[1])) return null;
+  return { id: m[1], kind: m[2] ? 'wave' : 'img' };
+}
+function blobToImage(blob) { return new Promise((res) => { const url = URL.createObjectURL(blob); const img = new Image(); img.onload = () => res(img); img.onerror = () => res(null); img.src = url; }); }
+// IndexedDB의 그림을 skinImages에 얹는다(manifest보다 우선). key = '<id>' | '<id>_wave'
+async function loadLocalSkins() {
+  try {
+    const all = await dbAll();
+    for (const [key, blob] of Object.entries(all)) {
+      const m = key.match(/^([a-z_]+?)(_wave)?$/); if (!m) continue;
+      const img = await blobToImage(blob); if (!img) continue;
+      const cur = skinImages[m[1]] ?? { img: null, wave: null, scale: 1.1, dy: 0 };
+      if (m[2]) cur.wave = img; else cur.img = img;
+      skinImages[m[1]] = cur;
+    }
+    for (const k of Object.keys(skinImages)) if (skinImages[k] && !skinImages[k].img) skinImages[k] = null; // wave만 있으면 무효
+    state.skins = Object.keys(skinImages).filter((k) => skinImages[k]);
+    state.localSkins = Object.keys(all).length;
+  } catch (e) { console.warn('local skins', e); }
+}
+async function importSkinFiles(files) {
+  const entries = [], skipped = [];
+  for (const f of files) {
+    const p = parseSkinFilename(f.name);
+    if (!p) { skipped.push(f.name); continue; }
+    entries.push([p.kind === 'wave' ? `${p.id}_wave` : p.id, f]);
+  }
+  if (entries.length) await dbPut(entries);
+  await loadLocalSkins();
+  return { added: entries.map((e) => e[0]), skipped };
+}
+state.importSkinFiles = importSkinFiles; // 디버그용
 
 // 상태 전이. progress 0=숨김(bbox.y+0.6h), 1=완전 등장(bbox.y+0.15h)
 function updateCharacter(now) {
@@ -1338,12 +1405,28 @@ function renderPanel() {
     }
     group.appendChild(grid); slots.appendChild(group);
   }
+  panel.querySelector('#skinstat').textContent = `원본 그림 ${state.skins?.length ?? 0}/${SPECIES.length}` + (state.localSkins ? ` (기기 저장 ${state.localSkins}파일)` : ''); // S19
   panel.querySelector('#home').textContent = state.home
     ? `숨은 곳: ${state.home.solved ? state.home.label + ' (맞춤!)' : '??? (빛나는 물건을 찾아보세요)'} · 스캔에서 본 물체: ${(state.home.seen ?? [state.home.label]).join(', ')}`
     : '스캔 중…';
 }
 badge.addEventListener('click', () => { renderPanel(); panel.hidden = !panel.hidden; });
 panel.addEventListener('click', (e) => { if (e.target === panel) panel.hidden = true; });
+// S19: 원본 그림 넣기 / 지우기
+const skinInput = panel.querySelector('#skinfile');
+panel.querySelector('#skinpick').addEventListener('click', () => skinInput.click());
+skinInput.addEventListener('change', async () => {
+  const r = await importSkinFiles([...skinInput.files]);
+  skinInput.value = '';
+  renderPanel();
+  panel.querySelector('#skinmsg').textContent = `넣음 ${r.added.length}개` + (r.skipped.length ? ` · 무시 ${r.skipped.length}개 (파일명이 <id>.png 형식이 아님: ${r.skipped.slice(0, 3).join(', ')})` : '');
+});
+panel.querySelector('#skinclear').addEventListener('click', async () => {
+  if (!confirm('기기에 넣은 원본 그림을 모두 지울까요?')) return;
+  await dbClear(); for (const k of Object.keys(skinImages)) delete skinImages[k];
+  await loadSkin(); await loadLocalSkins(); renderPanel();
+  panel.querySelector('#skinmsg').textContent = '지웠음';
+});
 panel.querySelector('#reset').addEventListener('click', () => {
   if (!confirm('기억한 물체와 도감을 모두 지울까요?')) return;
   store.clear(); state.home = null; state.collection = [];
