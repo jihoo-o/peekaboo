@@ -1,5 +1,7 @@
 # Peekaboo AR — a character hiding behind objects
 
+**Hide & seek (S21).** Someone hides a character behind a specific object at a specific place and shares a link; someone else opens the link, follows the distance/compass banner, and once nearby points the camera at that object to make the character sneak out and collect it. No server: the hiding spot (object label, GPS, compass heading, species) travels inside the URL (`?c=…`). Start menu: **찾기** (paste/open a link) · **숨기기** (hide behind the object in view) · **혼자 놀기** (the older self-scan game).
+
 Scan the room once. The app secretly picks one of the objects it saw; that object glows from behind, brighter as you get closer. Hold it in view for five seconds and a character sneaks out from **behind** it. Tap it to collect it. The collection is a 15-species dex modelled on Chiikawa (먼작귀): which species appears depends on the object it hides behind, with rarity tiers, a night-only secret and set completion. Official artwork slots are empty until a license is in place; until then each species renders as a name-tagged silhouette ([ADR-0018](docs/adr/0018-chiikawa-dex-and-skin-slot.md)).
 No build step: just `index.html` + `app.js`. Libraries come from a CDN as ES modules and the models load straight from Google's storage.
 
@@ -24,6 +26,8 @@ No build step: just `index.html` + `app.js`. Libraries come from a CDN as ES mod
 | `?mask=0` | Disable segmentation and use the S3 rectangular bbox occlusion only |
 | `?debug=1` | Show detection boxes and labels (hidden by default since S16; the HUD is always on) |
 | `?reset=1` | Forget the chosen object, clear the collection and rescan |
+| `?c=<cache>` | Open a hidden character (seek mode); produced by the hide flow's share button |
+| `?mode=hide` | Skip the menu and start hiding |
 | `?skin=silhouette` | Ignore official skin files and draw the name-tagged silhouettes |
 | `?skin=drawn` | Use the S17 canvas drawings instead of the S20 pixel sprites |
 
@@ -53,6 +57,7 @@ HUD (top-left): detection Hz · segmentation Hz · render fps · delegate · loc
 | S18 | Original (official) assets first: manifest entries with `file`/`scale`/`dy`/`wave`, wave-pose swap, pipeline verified with dummy PNGs; drawings only as fallback ([ADR-0023](docs/adr/0023-original-assets-only.md)) | `S18: original assets first` |
 | S19 | Load original artwork on the device itself (dex panel → file picker → IndexedDB); nothing is uploaded or committed ([ADR-0024](docs/adr/0024-on-device-original-assets.md)) | `S19: on-device original assets` |
 | S20 | Default character art = 22×24 pixel sprites in the Tamagotchi idiom (1px outline, flat tones, bean eyes, stub limbs, head accessories), generated from parts in `pixel.js`; original designs, no copied dots. Priority: device/manifest originals > pixel > `?skin=drawn` > `?skin=silhouette` ([ADR-0025](docs/adr/0025-pixel-sprites-default.md)) | `S20: pixel sprites` |
+| S21 | Hide & seek: hide behind an object at a place, share as URL, seeker gets distance/compass then object recognition ([ADR-0026](docs/adr/0026-hide-and-seek-caches-in-url.md)) | `S21: hide and seek` |
 
 ## Verification (headless Chromium + fake camera)
 
@@ -64,6 +69,7 @@ Without a phone at hand, the page was actually run under Playwright ([ADR-0004](
 
 - Confirmed: scan → `cup` chosen and stored, `cup` detected at 0.69 and locked, glow drawn behind it, charging → pop → idle, the mask hides the sprite along the cup's curved rim, first tap → `collect` (collection 1/6 persisted in localStorage), second tap → `wave`, shutter → `peekaboo-<ts>.jpg` download.
 - S13 (headless, Chromium fake camera, models blocked in the container so the lock was injected): `cup` lock → sneak → idle with species `chiikawa`; 400 draws of the species picker for `cup` gave chiikawa 257 · kurimanju 104 · yoroi_ramen 39, matching the 10:5:2 rarity weights; tap → `collect`, badge ★ 1/15, `peekaboo.collection` persisted with `night:false`; shutter → JPEG with the `치이카와 · 흔함 #Peekaboo` stamp; dex panel shows 주역 1/3 · 친구 0/9 · 갑옷 0/3 with rarity dots and silhouettes.
+- Hide & seek (S21, fake GPS): hide card with the share link, and the seeker arriving 6 m from the spot with the linked species peeking: ![](docs/verify/s21-hide-card.png) ![](docs/verify/s21-seek-arrived.png)
 - Original-asset path with a dummy test PNG loaded on the device (S19; the real files are the rights holder's): ![](docs/verify/s19-on-device-asset.png)
 - All 14 species as drawn by `drawSpecies` (S17): ![](docs/verify/s17-species-sheet.png)
 - Spotlight after the sprite appears (glow faded, background darkened, sprite opaque): ![](docs/verify/s16-spotlight.png) ![](docs/verify/s16-spotlight-side.png)

@@ -29,3 +29,4 @@
 | [0023](0023-original-assets-only.md) | 협업 조건: 원본 에셋 그대로 사용(드로잉은 대체), manifest에 file/scale/dy/wave, 더미 PNG로 파이프라인 검증 |
 | [0024](0024-on-device-original-assets.md) | 원본 그림을 폰에서 직접 넣기(IndexedDB): 저장소·서버에 올리지 않고 즉시 원본 사용, 우선순위 기기 > manifest > 드로잉 |
 | [0025](0025-pixel-sprites-default.md) | 기본 그림 = 22×24 픽셀 스프라이트(다마고치 문법, 부품 조합 생성, `pixel.js`). 원본 에셋 > 픽셀 > `?skin=drawn` > `?skin=silhouette` |
+| [0026](0026-hide-and-seek-caches-in-url.md) | 숨바꼭질 포맷: 특정 장소·물체에 숨기고 URL로 공유, 찾는 쪽은 GPS 거리·나침반 화살표 → 근처에서 물체 인식. 서버 없음 |

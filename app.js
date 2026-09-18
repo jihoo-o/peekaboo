@@ -9,6 +9,7 @@
 // S10: 큰 물체는 옆에서 등장(화면 위 여유 없을 때) + 한 번 맞춘 물체는 이후 즉시 등장
 // S11: 짠! 대신 스을쩍 — 물체에 완전히 가려진 위치에서 뒤뚱거리며 걸어 나오고, 중간에 한 번 움찔 물러난다
 // S12: 패럴랙스 — 평소엔 반쯤 숨어 있고, 폰을 옆·위로 움직이면(물체가 화면에서 치우치면) 뒤에 숨은 캐릭터가 더 드러난다
+// S21: 숨바꼭질 포맷 — 숨기는 사람이 특정 장소의 특정 물체에 캐릭터를 숨기고(GPS+나침반+물체 라벨을 링크에 담아 공유), 찾는 사람은 링크를 열어 거리·방향 안내를 따라간 뒤 그 물체를 비춰 잡는다. 서버 없음
 // S20: 픽셀 캐릭터 — 원본 에셋이 없을 때의 기본 그림을 다마고치 문법의 22×24 픽셀 스프라이트(pixel.js)로. ?skin=drawn 이면 S17 캔버스 드로잉, ?skin=silhouette 이면 실루엣
 // S19: 원본 에셋을 기기에서 직접 넣기 — 도감 패널의 파일 선택으로 <id>.png / <id>_wave.png 를 IndexedDB에 저장. 저장소에 올리지 않아도 폰에서 바로 원본이 뜬다
 // S18: 원본(공식) 에셋 우선 — manifest 항목에 file/scale/dy/wave 지정 가능, wave 전용 그림 지원, 파일이 있으면 캔버스 드로잉은 쓰지 않는다
@@ -54,6 +55,9 @@ const SCAN_MAX_MS = 10000;    // S14: 이 시간이 지나면 1회라도 본 물
 const EDGE_HINT_DEG = 8;      // S15: 목표 방향과 이보다 벌어지면 엣지 발광
 const EDGE_FULL_DEG = 50;     // S15: 이만큼 벌어지면 엣지 발광 최대
 const HINT_AFTER_MS = 20000;  // S14: 이만큼 못 찾으면 라벨 힌트
+// S21: 숨바꼭질
+const NEAR_M = 25;            // 숨긴 지점에서 이 거리(또는 GPS 오차 합) 안이면 "근처" → 물체 찾기 시작
+const GEO_BYPASS_MS = 20000;  // GPS가 이만큼 안 잡히거나 오차가 크면 "GPS 없이 찾기" 허용
 const NEAR_MIN = 0.15, NEAR_MAX = 0.6; // bbox 폭/영상 폭 → 0(멀다)~1(가깝다)
 // S12: 패럴랙스. 물체가 화면 중앙에서 얼마나 치우쳤는지(-1~1)를 카메라 이동의 근사치로 쓴다.
 const PARALLAX_X = 0.55;   // 가로 최대 이동 = bbox 폭 × 이 값
@@ -106,7 +110,7 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const hud = document.getElementById('hud');
 const msg = document.getElementById('msg');
-const startBtn = document.getElementById('start');
+const startBtn = document.getElementById('start'); // (S21: 메뉴로 대체, 호환용)
 
 // ---- 상태 (디버그용으로 window에도 노출) ----
 const state = {
@@ -124,6 +128,13 @@ const state = {
   home: (() => { const h = store.get('home', null); if (h?.orient && !h.orient.abs) h.orient = null; return h; })(), // S8/S15: 상대 자이로값은 새 세션에서 무효
   // S8
   phase: store.get('home', null) ? 'play' : 'scan',
+  // S21
+  mode: 'scan',                             // 'hide' | 'seek' | 'scan'
+  cache: null,                              // seek: 링크에서 읽은 숨김 정보
+  geo: null, dist: null, bearing: null,     // 현재 위치, 숨긴 지점까지 거리(m), 방위(북 기준 시계방향)
+  geoBypass: false, geoStart: 0,
+  hides: store.get('hides', []),            // 내가 숨긴 것들
+  finds: store.get('finds', []),            // 내가 찾은 cache id
   scan: { start: 0, seen: {} },             // seen[label] = { n, maxW }
   near: 0,                                  // 0~1 대상 물체와의 가까움(bbox 폭 기준)
   playStart: 0, lastLockAt: 0,              // S14: 힌트 타이머
@@ -187,8 +198,8 @@ function updateTracker(dets, now) {
     // 락 없음: 허용 클래스 중 score>=0.5, 면적 최대
     let best = null;
     for (const d of dets) {
-      // S7/S8: 스캔에서 고른 물체 클래스만
-      const ok = state.home ? d.label === state.home.label : false;
+      // S7/S8/S21: 숨기기 모드는 아무 물체나, 찾기/스캔 모드는 대상 클래스만(찾기는 근처에 왔을 때만)
+      const ok = state.mode === 'hide' ? ALLOWED.includes(d.label) : (state.home && !seekFar()) ? d.label === state.home.label : false;
       if (!ok || d.score < LOCK_MIN_SCORE) continue;
       if (!best || d.w * d.h > best.w * best.h) best = d;
     }
@@ -451,6 +462,85 @@ function drawEdgeHint(ctx, e, t) {
   ctx.restore();
 }
 
+// ---- S21: 숨바꼭질 — 링크 인코딩, GPS, 거리·방위 ----
+const b64u = {
+  enc: (s) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+  dec: (s) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))),
+};
+function encodeCache(c) { return b64u.enc(JSON.stringify(c)); }
+function decodeCache(s) { try { const c = JSON.parse(b64u.dec(s)); return c && c.v === 1 && c.label && c.sp ? c : null; } catch { return null; } }
+function cacheUrl(c) { const u = new URL(location.href); u.search = ''; u.searchParams.set('c', encodeCache(c)); return u.toString(); }
+function startGeo() {
+  if (!navigator.geolocation) return;
+  state.geoStart = performance.now();
+  navigator.geolocation.watchPosition((p) => {
+    state.geo = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy ?? 999 };
+    updateDistance();
+  }, (e) => console.warn('geo', e.message), { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 });
+}
+const toRad = (d) => d * Math.PI / 180;
+function haversine(a, b) {
+  const R = 6371000, dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function bearingTo(a, b) {
+  const y = Math.sin(toRad(b.lng - a.lng)) * Math.cos(toRad(b.lat));
+  const x = Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) - Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(toRad(b.lng - a.lng));
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+function updateDistance() {
+  const c = state.cache, g = state.geo;
+  if (!c || !g || c.lat == null) { state.dist = null; state.bearing = null; return; }
+  state.dist = haversine(g, c); state.bearing = bearingTo(g, c);
+}
+// 찾기 모드에서 아직 멀리 있나? (GPS 없이 찾기를 누르면 false)
+function seekFar() {
+  if (state.mode !== 'seek' || state.geoBypass) return false;
+  const c = state.cache; if (!c || c.lat == null) return false;
+  if (state.dist == null) return true;
+  return state.dist > Math.max(NEAR_M, (state.geo?.acc ?? 0) + (c.acc ?? 0));
+}
+function geoStuck() { // GPS가 안 잡히거나 오차가 커서 우회를 권할 상황
+  return state.mode === 'seek' && !state.geoBypass && performance.now() - state.geoStart > GEO_BYPASS_MS && (state.dist == null || (state.geo?.acc ?? 999) > 100);
+}
+// 숨기기: 현재 락된 물체 + 위치 + 방향 + 캐릭터로 cache 생성
+function makeCache() {
+  const L = state.lock; if (!L) return null;
+  const sp = pickSpriteForHide(L.label);
+  const c = { v: 1, id: Math.random().toString(36).slice(2, 8), label: L.label, sp: sp.id, at: Date.now() };
+  if (state.geo) { c.lat = +state.geo.lat.toFixed(6); c.lng = +state.geo.lng.toFixed(6); c.acc = Math.round(state.geo.acc); }
+  if (orient.ok && orient.abs) { c.heading = Math.round(orient.heading); c.pitch = Math.round(orient.pitch); }
+  return c;
+}
+function pickSpriteForHide(label) {
+  let pool = SPECIES.filter((sp) => !sp.night && sp.objects.includes(label));
+  if (!pool.length) pool = SPECIES.filter((sp) => !sp.night);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+// 찾기: cache → home
+function beginSeek(c) {
+  state.mode = 'seek'; state.cache = c; state.phase = 'play';
+  state.home = { label: c.label, seen: [c.label], savedAt: c.at, solved: state.finds.includes(c.id), cacheId: c.id,
+    orient: c.heading != null ? { heading: c.heading, pitch: c.pitch ?? 0, abs: true } : null };
+  state.playStart = performance.now(); state.lastLockAt = 0;
+  updateDistance();
+}
+// 찾기 모드 안내 배너(거리·화살표)
+const seekbar = document.getElementById('seekbar');
+function renderSeekbar() {
+  const on = state.mode === 'seek' && detector && (seekFar() || geoStuck());
+  seekbar.hidden = !on; if (!on) return;
+  const d = state.dist;
+  let txt = d == null ? 'GPS 잡는 중…' : d >= 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d)} m`;
+  if (state.geo?.acc > 50) txt += ` (오차 ±${Math.round(state.geo.acc)}m)`;
+  seekbar.querySelector('#dist').textContent = txt;
+  const ar = seekbar.querySelector('#arrow');
+  if (state.bearing != null && orient.ok) { ar.hidden = false; ar.style.transform = `rotate(${wrapDeg(state.bearing - orient.heading)}deg)`; }
+  else ar.hidden = true;
+  seekbar.querySelector('#bypass').hidden = !geoStuck();
+}
+
 // ---- S8: 공간 스캔 → 대상 물체 선택 ----
 function startScan(now) {
   state.phase = 'scan'; state.scan = { start: now, seen: {} };
@@ -570,6 +660,7 @@ function isCollected(id) { return state.collection.some((c) => c.id === id); }
 // S7 → S13: 등장할 종 고르기. 물체 라벨에 사는 종 중에서 희귀도 가중치로 뽑고, 미수집이 남았으면 70% 확률로 미수집 중에서.
 // 라벨에 사는 종이 없으면 주역 3. 심야엔 세이렌이 어디서든 후보에 들어간다(가중치 1).
 function pickSprite() {
+  if (state.cache) return speciesById(state.cache.sp) ?? SPECIES[0]; // S21: 숨긴 사람이 정한 캐릭터
   const label = state.lock?.label ?? state.home?.label;
   let pool = SPECIES.filter((sp) => !sp.night && sp.objects.includes(label));
   if (!pool.length) pool = SPECIES.filter((sp) => sp.group === '주역');
@@ -676,6 +767,7 @@ state.importSkinFiles = importSkinFiles; // 디버그용
 // 상태 전이. progress 0=숨김(bbox.y+0.6h), 1=완전 등장(bbox.y+0.15h)
 function updateCharacter(now) {
   const c = state.char;
+  if (state.mode === 'hide') { c.state = 'hidden'; c.progress = 0; return; } // S21: 숨기기 모드에선 캐릭터가 나오지 않는다
   const locked = !!state.lock;
   if (!locked && c.state !== 'hidden' && c.state !== 'hide') {
     if (c.state === 'charging') { c.state = 'hidden'; c.progress = 0; } // 아직 안 나왔으면 바로 숨김
@@ -1294,6 +1386,7 @@ function render(t) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (video.videoWidth) { composite(t); if (params.get('debug') === '1') drawDetections(t); } // S3 → S16: 박스는 ?debug=1일 때만
   updateHint(); // S5
+  renderSeekbar(); // S21
   hud.textContent =
     `det ${hz(state.detTimes, t)} Hz | seg ${hz(state.segTimes, t)} Hz | fps ${hz(state.frameTimes, t)} | ${state.delegate}\n` +
     `video ${video.videoWidth}x${video.videoHeight}\n` +
@@ -1301,6 +1394,7 @@ function render(t) {
     `mask ${USE_MASK ? (state.mask ? 'on' : 'none') : 'off'} | rej ${state.maskRejects}\n` +
     `phase ${state.phase} | home ${state.home?.label ?? '-'}${state.home?.solved ? '✓' : ''} | near ${state.near.toFixed(2)} | hits ${state.hits}\n` +
     `sprite ${state.char.sprite?.id ?? '-'}${isNight() ? ' night' : ''} | col ${state.collection.length}/${SPECIES.length} | px ${state.parallax.x.toFixed(2)} py ${state.parallax.y.toFixed(2)}\n` +
+    `mode ${state.mode}${state.cache ? ' #' + state.cache.id : ''} | dist ${state.dist == null ? '-' : Math.round(state.dist) + 'm'} | acc ${state.geo ? Math.round(state.geo.acc) + 'm' : '-'} | far ${seekFar() ? 'y' : 'n'}\n` +
     `skin ${state.skins ? state.skins.length + '/' + SPECIES.length : '-'} | ` +
     `gyro ${orient.ok ? (orient.abs ? 'abs ' : 'rel ') + orient.heading.toFixed(0) + '°/' + orient.pitch.toFixed(0) + '°' : '-'} | target ${state.home?.orient ? state.home.orient.heading.toFixed(0) + '°/' + state.home.orient.pitch.toFixed(0) + '°' : '-'} | edge ${state.edge ? ['left','right','top','bottom'].filter((k) => state.edge[k]).join(',') || 'none' : '-'}` +
     (state.error ? `\nERR ${state.error}` : '');
@@ -1320,8 +1414,9 @@ function onTap(ev) {
   const r = p.size / 2, bx = p.cx, by = p.cy - r;
   if (Math.hypot(x - bx, y - by) > r * 1.3) return;
   if (c.sprite && !isCollected(c.sprite.id)) {
-    state.collection.push({ id: c.sprite.id, label: state.lock?.label ?? '?', at: Date.now(), night: isNight() });
+    state.collection.push({ id: c.sprite.id, label: state.lock?.label ?? '?', at: Date.now(), night: isNight(), cache: state.cache?.id });
     store.set('collection', state.collection);
+    if (state.cache && !state.finds.includes(state.cache.id)) { state.finds.push(state.cache.id); store.set('finds', state.finds); } // S21
     c.state = 'collect'; c.since = performance.now();
     renderBadge();
   } else { c.state = 'wave'; c.since = performance.now(); }
@@ -1366,6 +1461,17 @@ function updateHint() {
   if (state.error || !detector) return;
   const c = state.char;
   let text = '';
+  if (state.mode === 'hide') { // S21
+    text = !state.lock ? '숨길 물건을 비춰보세요' : !confirmed() ? '잠깐 가만히…' : `${state.lock.label} 뒤에 숨길 수 있어요 → 아래 버튼`;
+    if (msg.textContent !== text) msg.textContent = text;
+    hideBtn.hidden = !(state.lock && confirmed()) || !hidecard.hidden;
+    return;
+  }
+  if (state.mode === 'seek' && seekFar()) { // S21
+    text = state.dist == null ? '숨긴 곳의 위치를 확인하는 중…' : '화살표 방향으로 이동하세요. 가까워지면 물건이 빛나요';
+    if (msg.textContent !== text) msg.textContent = text;
+    return;
+  }
   if (state.phase === 'scan') { // S8
     const n = Object.keys(state.scan.seen).length;
     const left = Math.max(0, Math.ceil((SCAN_MS - (performance.now() - state.scan.start)) / 1000));
@@ -1451,10 +1557,46 @@ panel.querySelector('#reset').addEventListener('click', () => {
   renderBadge(); renderPanel(); panel.hidden = true;
 });
 
+// ---- S21: 숨기기 UI ----
+const hideBtn = document.getElementById('hidebtn');
+const hidecard = document.getElementById('hidecard');
+let pendingCache = null;
+function showHideCard(c) {
+  pendingCache = c;
+  const sp = speciesById(c.sp);
+  hidecard.querySelector('#hc-sp').textContent = `${sp.name} · ${c.label} 뒤`;
+  hidecard.querySelector('#hc-geo').textContent = c.lat != null ? `위치 저장됨 (오차 ±${c.acc}m)${c.heading != null ? ' · 방향 저장됨' : ''}` : '위치 없음 (GPS 미허용) — 링크로만 찾을 수 있어요';
+  hidecard.querySelector('#hc-url').value = cacheUrl(c);
+  hidecard.hidden = false; hideBtn.hidden = true;
+}
+hideBtn.addEventListener('click', () => { const c = makeCache(); if (c) showHideCard(c); });
+hidecard.querySelector('#hc-reroll').addEventListener('click', () => { if (!pendingCache) return; pendingCache.sp = pickSpriteForHide(pendingCache.label).id; showHideCard(pendingCache); });
+hidecard.querySelector('#hc-share').addEventListener('click', async () => {
+  const c = pendingCache; if (!c) return;
+  const url = cacheUrl(c);
+  if (!state.hides.some((h) => h.id === c.id)) { state.hides.push(c); store.set('hides', state.hides); }
+  try {
+    if (navigator.share) await navigator.share({ title: 'Peekaboo 숨바꼭질', text: `${speciesById(c.sp).name}를 숨겼어요. 찾아보세요!`, url });
+    else { await navigator.clipboard.writeText(url); hidecard.querySelector('#hc-msg').textContent = '링크를 복사했어요'; }
+  } catch (e) { if (e.name !== 'AbortError') { try { await navigator.clipboard.writeText(url); hidecard.querySelector('#hc-msg').textContent = '링크를 복사했어요'; } catch { hidecard.querySelector('#hc-msg').textContent = '아래 링크를 길게 눌러 복사하세요'; } } }
+});
+hidecard.querySelector('#hc-close').addEventListener('click', () => { hidecard.hidden = true; pendingCache = null; });
+document.getElementById('bypass').addEventListener('click', () => { state.geoBypass = true; });
+
 // ---- 시작 ----
-async function main() {
-  startBtn.hidden = true;
+async function main(mode = 'scan') {
+  document.getElementById('menu').hidden = true;
+  state.mode = mode;
+  if (mode === 'seek' && !state.cache) { // 링크 붙여넣기
+    const txt = prompt('숨긴 사람에게 받은 링크를 붙여넣으세요') ?? '';
+    let c = null; try { c = decodeCache(new URL(txt.trim()).searchParams.get('c') ?? txt.trim()); } catch { c = decodeCache(txt.trim()); }
+    if (!c) { alert('링크를 읽을 수 없어요'); document.getElementById('menu').hidden = false; return; }
+    beginSeek(c);
+  }
+  if (mode === 'hide') { state.phase = 'play'; state.home = null; state.cache = null; }
+  if (mode === 'scan') state.cache = null;
   await requestOrientation(); // S15
+  if (mode !== 'scan') startGeo(); // S21
   resizeCanvas();
   try {
     await startCamera();
@@ -1464,7 +1606,7 @@ async function main() {
     msg.textContent = '';
     shutterBtn.hidden = false; // S5
     badge.hidden = false; renderBadge(); // S7
-    if (state.phase === 'scan') startScan(performance.now()); // S8
+    if (state.mode === 'scan' && state.phase === 'scan') startScan(performance.now()); // S8
     else state.playStart = performance.now(); // S14
     video.requestVideoFrameCallback(onVideoFrame);
   } catch (e) {
@@ -1475,4 +1617,10 @@ async function main() {
 }
 
 requestAnimationFrame(render);
-startBtn.addEventListener('click', main, { once: true });
+// S21: 시작 메뉴. ?c=... 링크로 열면 바로 찾기 모드
+const CACHE_FROM_URL = params.get('c') ? decodeCache(params.get('c')) : null;
+if (CACHE_FROM_URL) { beginSeek(CACHE_FROM_URL); document.getElementById('menu-title').textContent = `${speciesById(CACHE_FROM_URL.sp)?.name ?? '먼작귀'}가 ${CACHE_FROM_URL.label} 뒤에 숨어 있어요`; }
+document.getElementById('m-hide').addEventListener('click', () => main('hide'));
+document.getElementById('m-seek').addEventListener('click', () => main('seek'));
+document.getElementById('m-scan').addEventListener('click', () => main('scan'));
+if (params.get('mode') === 'hide') main('hide');

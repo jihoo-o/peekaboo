@@ -25,6 +25,27 @@
       padding: 16px 28px; font-size: 18px; border: 0; border-radius: 999px; background: #ffd54f; z-index: 4;
     }
     #start[hidden] { display: none; }
+    /* S21: 시작 메뉴·찾기 배너·숨기기 카드 */
+    #menu { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.55); }
+    #menu[hidden], #seekbar[hidden], #hidebtn[hidden], #hidecard[hidden], #arrow[hidden], #bypass[hidden] { display: none; }
+    #menu .card, #hidecard .card { background: #fff; border-radius: 16px; padding: 18px; width: min(90vw, 360px); color: #222; display: flex; flex-direction: column; gap: 10px; }
+    #menu h1 { margin: 0 0 4px; font-size: 20px; }
+    #menu button, #hidecard button { padding: 12px; border: 0; border-radius: 12px; background: #f1ede4; color: #222; font-size: 15px; }
+    #menu button.primary, #hidecard button.primary { background: #ffd54f; color: #4a3700; font-weight: 700; }
+    #menu button.ghost, #hidecard button.ghost { background: transparent; color: #777; }
+    #menu small { color: #888; font-size: 12px; text-align: center; }
+    #seekbar { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 150px); left: 50%; transform: translateX(-50%); z-index: 4;
+      display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 999px; background: rgba(0,0,0,.6); color: #fff; font-size: 18px; font-weight: 700; white-space: nowrap; }
+    #seekbar #arrow { display: inline-block; font-size: 26px; color: #ffd54f; transform-origin: 50% 50%; transition: transform .2s; }
+    #seekbar #bypass { padding: 6px 10px; border: 0; border-radius: 999px; background: #ffd54f; color: #4a3700; font-size: 12px; }
+    #hidebtn { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 160px); transform: translateX(-50%); z-index: 4;
+      padding: 14px 26px; border: 0; border-radius: 999px; background: #ffd54f; color: #4a3700; font-size: 17px; font-weight: 700; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+    #hidecard { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.55); }
+    #hidecard h2 { margin: 0; font-size: 20px; }
+    #hidecard #hc-sp { font-size: 16px; font-weight: 700; }
+    #hidecard #hc-geo, #hidecard #hc-msg { font-size: 12px; color: #666; }
+    #hidecard textarea { width: 100%; box-sizing: border-box; font-size: 11px; color: #555; border: 1px solid #ddd; border-radius: 8px; padding: 6px; }
+    #hidecard .row { display: flex; gap: 8px; } #hidecard .row button { flex: 1; }
     /* S5: 셔터 버튼 */
     #shutter {
       position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 28px); transform: translateX(-50%);
@@ -71,7 +92,29 @@
     <canvas id="canvas"></canvas>
     <div id="hud">loading…</div>
     <div id="msg"></div>
-    <button id="start">카메라 시작</button>
+    <!-- S21: 시작 메뉴 -->
+    <div id="menu">
+      <div class="card">
+        <h1 id="menu-title">Peekaboo 숨바꼭질</h1>
+        <button id="m-seek" class="primary">찾기 — 받은 링크로 시작</button>
+        <button id="m-hide">숨기기 — 물건 뒤에 캐릭터 숨기기</button>
+        <button id="m-scan" class="ghost">혼자 놀기 (주변 스캔)</button>
+        <small>카메라·위치·나침반 권한을 허용해 주세요</small>
+      </div>
+    </div>
+    <div id="seekbar" hidden><span id="arrow">➤</span><span id="dist"></span><button id="bypass" hidden>GPS 없이 찾기</button></div>
+    <button id="hidebtn" hidden>여기 숨기기</button>
+    <div id="hidecard" hidden>
+      <div class="card">
+        <h2>숨겼어요!</h2>
+        <div id="hc-sp"></div>
+        <div id="hc-geo"></div>
+        <textarea id="hc-url" readonly rows="3"></textarea>
+        <div class="row"><button id="hc-share" class="primary">링크 공유</button><button id="hc-reroll">다른 캐릭터</button></div>
+        <div id="hc-msg"></div>
+        <button id="hc-close" class="ghost">닫기</button>
+      </div>
+    </div>
     <button id="shutter" aria-label="촬영" hidden></button>
     <button id="badge" hidden>★ 0/6</button>
     <div id="panel" hidden>
