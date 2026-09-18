@@ -25,6 +25,7 @@ No build step: just `index.html` + `app.js`. Libraries come from a CDN as ES mod
 | `?debug=1` | Show detection boxes and labels (hidden by default since S16; the HUD is always on) |
 | `?reset=1` | Forget the chosen object, clear the collection and rescan |
 | `?skin=silhouette` | Ignore official skin files and draw the name-tagged silhouettes |
+| `?skin=drawn` | Use the S17 canvas drawings instead of the S20 pixel sprites |
 
 HUD (top-left): detection Hz · segmentation Hz · render fps · delegate · locked class · miss time · character state · mask state.
 
@@ -51,14 +52,15 @@ HUD (top-left): detection Hz · segmentation Hz · render fps · delegate · loc
 | S17 | Roster corrected to 14 actual characters and each drawn recognizably on canvas (`drawSpecies`); silhouettes via `?skin=silhouette` ([ADR-0022](docs/adr/0022-drawn-chiikawa-roster.md)) | `S17: drawn chiikawa roster` |
 | S18 | Original (official) assets first: manifest entries with `file`/`scale`/`dy`/`wave`, wave-pose swap, pipeline verified with dummy PNGs; drawings only as fallback ([ADR-0023](docs/adr/0023-original-assets-only.md)) | `S18: original assets first` |
 | S19 | Load original artwork on the device itself (dex panel → file picker → IndexedDB); nothing is uploaded or committed ([ADR-0024](docs/adr/0024-on-device-original-assets.md)) | `S19: on-device original assets` |
+| S20 | Default character art = 22×24 pixel sprites in the Tamagotchi idiom (1px outline, flat tones, bean eyes, stub limbs, head accessories), generated from parts in `pixel.js`; original designs, no copied dots. Priority: device/manifest originals > pixel > `?skin=drawn` > `?skin=silhouette` ([ADR-0025](docs/adr/0025-pixel-sprites-default.md)) | `S20: pixel sprites` |
 
 ## Verification (headless Chromium + fake camera)
 
 Without a phone at hand, the page was actually run under Playwright ([ADR-0004](docs/adr/0004-verify-with-fake-camera.md)). The fake camera feed is scikit-image's sample `coffee.png`, a real photo of a coffee cup.
 
-| S1 detection | S4 mask occlusion | S8 scan | S12 half-hidden + parallax | S11 mid-sneak (side) | S10 side placement | S7 collected | S13 placeholder + tap | S13 dex |
-|---|---|---|---|---|---|---|---|---|
-| ![](docs/verify/s1-detection.png) | ![](docs/verify/s4-mask-occlusion.png) | ![](docs/verify/s8-scan.png) | ![](docs/verify/s12-parallax.png) | ![](docs/verify/s11-sneak-mid.png) | ![](docs/verify/s10-side-placement.png) | ![](docs/verify/s7-collected.png) | ![](docs/verify/s13-placeholder.png) | ![](docs/verify/s13-dex.png) |
+| S1 detection | S4 mask occlusion | S8 scan | S12 half-hidden + parallax | S11 mid-sneak (side) | S10 side placement | S7 collected | S13 placeholder + tap | S13 dex | S20 pixel sheet | S20 in-game | S20 dex |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| ![](docs/verify/s1-detection.png) | ![](docs/verify/s4-mask-occlusion.png) | ![](docs/verify/s8-scan.png) | ![](docs/verify/s12-parallax.png) | ![](docs/verify/s11-sneak-mid.png) | ![](docs/verify/s10-side-placement.png) | ![](docs/verify/s7-collected.png) | ![](docs/verify/s13-placeholder.png) | ![](docs/verify/s13-dex.png) | ![](docs/verify/s20-pixel-sheet.png) | ![](docs/verify/s20-ingame.png) | ![](docs/verify/s20-dex.png) |
 
 - Confirmed: scan → `cup` chosen and stored, `cup` detected at 0.69 and locked, glow drawn behind it, charging → pop → idle, the mask hides the sprite along the cup's curved rim, first tap → `collect` (collection 1/6 persisted in localStorage), second tap → `wave`, shutter → `peekaboo-<ts>.jpg` download.
 - S13 (headless, Chromium fake camera, models blocked in the container so the lock was injected): `cup` lock → sneak → idle with species `chiikawa`; 400 draws of the species picker for `cup` gave chiikawa 257 · kurimanju 104 · yoroi_ramen 39, matching the 10:5:2 rarity weights; tap → `collect`, badge ★ 1/15, `peekaboo.collection` persisted with `night:false`; shutter → JPEG with the `치이카와 · 흔함 #Peekaboo` stamp; dex panel shows 주역 1/3 · 친구 0/9 · 갑옷 0/3 with rarity dots and silhouettes.

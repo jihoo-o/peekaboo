@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>픽셀 캐릭터 시트</title>
+<style>
+  :root { --bg: #F4F1EA; --card: #fff; --ink: #2B2620; --ink-2: #6F675C; --line: #E3DDD2; --accent: #F5C842; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif; padding: 20px 16px 40px; }
+  .wrap { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+  h1 { font-size: 26px; margin: 0; } p.sub { margin: 4px 0 0; color: var(--ink-2); font-size: 14px; max-width: 70ch; }
+  .sheet { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; background: #FAF8F2; border-radius: 12px; }
+  figure canvas { image-rendering: pixelated; width: 132px; height: 144px; }
+  figcaption { font-size: 13px; text-align: center; } figcaption small { display: block; color: var(--ink-2); font-size: 11px; }
+  .row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; }
+  .row canvas { image-rendering: pixelated; }
+  .row .lab { font-size: 12px; color: var(--ink-2); text-align: center; }
+  .seg button { border: 1px solid var(--line); background: #FAF8F2; border-radius: 999px; padding: 4px 12px; font-size: 14px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>픽셀 캐릭터 시트 (S20)</h1><p class="sub">다마고치 문법(1px 외곽선, 평면 2~3톤, 콩알 눈 + 흰 하이라이트, 뭉툭한 팔·발, 머리 위 액세서리)으로 14종을 22×24 격자에서 부품 조합으로 생성한다. 그림 파일 없이 <code>pixel.js</code> 코드가 전부다. 기존 캐릭터의 도트를 복제하지 않은 새 디자인.</p></header>
+  <div class="seg"><button id="b-open" aria-pressed="true">눈 뜸</button> <button id="b-blink" aria-pressed="false">깜빡</button> <button id="b-sil" aria-pressed="false">실루엣</button> <button id="b-anim" aria-pressed="false">움직임</button></div>
+  <section class="sheet" id="sheet"></section>
+  <section class="row" id="row"></section>
+</div>
+<script type="module">
+  import { drawPixel, buildPixels, PW, PH } from '../../pixel.js';
+  const SPECIES = [{"id": "chiikawa", "name": "치이카와", "jp": "ちいかわ", "group": "주역", "rarity": "C", "color": "#FFFFFF", "tone": "#F7B6C2"}, {"id": "hachiware", "name": "하치와레", "jp": "ハチワレ", "group": "주역", "rarity": "C", "color": "#FFFFFF", "tone": "#7FB3E6"}, {"id": "usagi", "name": "우사기", "jp": "うさぎ", "group": "주역", "rarity": "C", "color": "#FFF2A8", "tone": "#F5D26B"}, {"id": "momonga", "name": "모몽가", "jp": "モモンガ", "group": "친구", "rarity": "U", "color": "#FFFFFF", "tone": "#F4B8D0"}, {"id": "kurimanju", "name": "쿠리만쥬", "jp": "くりまんじゅう", "group": "친구", "rarity": "U", "color": "#F6E7B8", "tone": "#8E5A2B"}, {"id": "shisa", "name": "시사", "jp": "シーサー", "group": "친구", "rarity": "U", "color": "#F3C24B", "tone": "#E8742C"}, {"id": "rakko", "name": "랏코", "jp": "ラッコ", "group": "친구", "rarity": "R", "color": "#8B6A4E", "tone": "#E9D9C3"}, {"id": "furuhonya", "name": "헌책방(카니짱)", "jp": "古本屋", "group": "친구", "rarity": "R", "color": "#F6B7C6", "tone": "#E07A93"}, {"id": "dekatsuyo", "name": "데카츠요", "jp": "でかつよ", "group": "친구", "rarity": "R", "color": "#FFFFFF", "tone": "#F7B6C2"}, {"id": "pajama", "name": "파자마 파티즈", "jp": "パジャマパーティーズ", "group": "친구", "rarity": "R", "color": "#FFFFFF", "tone": "#A9A0D6"}, {"id": "seiren", "name": "세이렌", "jp": "セイレーン", "group": "친구", "rarity": "L", "color": "#F3EFE4", "tone": "#5FB3C4"}, {"id": "yoroi_ramen", "name": "라면 가게 갑옷", "jp": "鎧さん（ラーメン）", "group": "갑옷", "rarity": "R", "color": "#F2C94C", "tone": "#FFFFFF"}, {"id": "yoroi_info", "name": "안내소 갑옷", "jp": "鎧さん（案内所）", "group": "갑옷", "rarity": "R", "color": "#C9CDD6", "tone": "#8A9099"}, {"id": "yoroi_pochette", "name": "포셰트 갑옷", "jp": "鎧さん（ポシェット）", "group": "갑옷", "rarity": "R", "color": "#5B8DD9", "tone": "#8B5E3C"}];
+  const sheet = document.getElementById('sheet');
+  const cvs = [];
+  for (const sp of SPECIES) {
+    const f = document.createElement('figure'); const c = document.createElement('canvas'); c.width = PW * 6; c.height = PH * 6;
+    f.appendChild(c); const cap = document.createElement('figcaption'); cap.innerHTML = `${sp.name}<small>${sp.id} · ${sp.group} · ${sp.rarity}</small>`; f.appendChild(cap); sheet.appendChild(f); cvs.push([sp, c]);
+  }
+  const row = document.getElementById('row');
+  const anim = []; for (const [lab, o] of [['대기', {}], ['걷기(뒤뚱)', { tilt: 0.07 }], ['흔들기', { waving: true }]]) { const d = document.createElement('div'); const c = document.createElement('canvas'); c.width = 200; c.height = 220; c.style.width = '200px'; c.style.height = '220px'; d.appendChild(c); const l = document.createElement('div'); l.className = 'lab'; l.textContent = lab; d.appendChild(l); row.appendChild(d); anim.push([o, c]); }
+  let mode = 'open', animate = false;
+  const btn = (id, m) => document.getElementById(id).addEventListener('click', () => { if (id === 'b-anim') { animate = !animate; document.getElementById('b-anim').setAttribute('aria-pressed', String(animate)); return; } mode = m; for (const x of ['b-open', 'b-blink', 'b-sil']) document.getElementById(x).setAttribute('aria-pressed', String(x === id)); });
+  btn('b-open', 'open'); btn('b-blink', 'blink'); btn('b-sil', 'sil'); btn('b-anim', null);
+  function frame(now) {
+    const t = animate ? now : 1000;
+    for (const [sp, c] of cvs) { const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); if (mode === 'sil') drawPixel(g, sp, c.width / 2, c.height, c.width, 1000, { silhouette: true }); else if (mode === 'blink') drawPixel(g, sp, c.width / 2, c.height, c.width, 20, {}); else drawPixel(g, sp, c.width / 2, c.height, c.width, t, {}); }
+    const sp = SPECIES[0];
+    anim.forEach(([o, c], i) => { const g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); const tilt = o.tilt ? Math.sin(t / 85) * o.tilt : 0; const bob = o.tilt ? -Math.abs(Math.sin(t / 85)) * 6 : 0; drawPixel(g, sp, 100, 210 + bob, 176, t, { waving: o.waving, tilt }); });
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
+</body>
+</html>

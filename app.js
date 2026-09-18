@@ -9,6 +9,7 @@
 // S10: 큰 물체는 옆에서 등장(화면 위 여유 없을 때) + 한 번 맞춘 물체는 이후 즉시 등장
 // S11: 짠! 대신 스을쩍 — 물체에 완전히 가려진 위치에서 뒤뚱거리며 걸어 나오고, 중간에 한 번 움찔 물러난다
 // S12: 패럴랙스 — 평소엔 반쯤 숨어 있고, 폰을 옆·위로 움직이면(물체가 화면에서 치우치면) 뒤에 숨은 캐릭터가 더 드러난다
+// S20: 픽셀 캐릭터 — 원본 에셋이 없을 때의 기본 그림을 다마고치 문법의 22×24 픽셀 스프라이트(pixel.js)로. ?skin=drawn 이면 S17 캔버스 드로잉, ?skin=silhouette 이면 실루엣
 // S19: 원본 에셋을 기기에서 직접 넣기 — 도감 패널의 파일 선택으로 <id>.png / <id>_wave.png 를 IndexedDB에 저장. 저장소에 올리지 않아도 폰에서 바로 원본이 뜬다
 // S18: 원본(공식) 에셋 우선 — manifest 항목에 file/scale/dy/wave 지정 가능, wave 전용 그림 지원, 파일이 있으면 캔버스 드로잉은 쓰지 않는다
 // S17: 실제 등장 캐릭터 기준으로 도감 정정(14종)하고, 종마다 캔버스로 알아볼 수 있게 그린다(drawSpecies). ?skin=silhouette 이면 예전 실루엣
@@ -16,6 +17,8 @@
 // S15: 타깃 못 잡는 문제 — 스캔은 딱 5초, 그동안 본 물체 중에서만 선정. 자이로로 물체 방향을 기억해 화면 밖이면 상하좌우 엣지 발광으로 카메라를 유도
 // S14: 못 찾는 문제 대응 — 스캔에서 충분히(4회↑) 본 물체만 후보, 본 횟수 가중 선택, 후보 목록·20초 뒤 라벨 힌트, 밝은 배경에서도 보이는 발광 링
 // S13: 먼작귀 도감 — 별사탕 6색 대신 캐릭터 15종. 물체 라벨마다 사는 종이 다르고, 희귀도·심야 시크릿·세트가 있다. 그림은 공식 에셋 슬롯(assets/skins/chiikawa/)이며 없으면 이름표 실루엣
+
+import { drawPixel } from './pixel.js'; // S20
 
 const VISION_VERSION = '0.10.35';
 const VISION_CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${VISION_VERSION}`;
@@ -735,8 +738,22 @@ function drawCandy(ctx, x, y, rr, color, t) {
 function drawCharacter(ctx, cx, cy, size, t, opts = {}) {
   const sp = opts.sprite;
   if (sp && skinImages[sp.id]) return drawSkin(ctx, skinImages[sp.id], cx, cy, size, t, opts); // S18: 원본 에셋 우선
-  if (sp) return params.get('skin') === 'silhouette' ? drawPlaceholder(ctx, sp, cx, cy, size, t, opts) : drawSpecies(ctx, sp, cx, cy, size, t, opts); // S17
+  if (sp) { // S20: 기본은 픽셀. ?skin=drawn → S17 드로잉, ?skin=silhouette → 실루엣
+    const style = params.get('skin');
+    if (style === 'silhouette') return drawPlaceholder(ctx, sp, cx, cy, size, t, opts);
+    if (style === 'drawn') return drawSpecies(ctx, sp, cx, cy, size, t, opts);
+    return drawPixelChar(ctx, sp, cx, cy, size, t, opts);
+  }
   return drawSoot(ctx, cx, cy, size, t, opts);
+}
+
+// S20: 픽셀 스프라이트 + 공통 배지(미수집 "!", 수집 반짝이)
+function drawPixelChar(ctx, sp, cx, cy, size, t, opts) {
+  const r = size / 2, bodyCy = cy - r;
+  ctx.save();
+  drawPixel(ctx, sp, cx, cy, size, t, { waving: opts.waving, tilt: opts.tilt });
+  drawBadges(ctx, cx, bodyCy, r, size, t, opts);
+  ctx.restore();
 }
 
 // ---- S17: 종별 캔버스 드로잉 ----
@@ -1395,8 +1412,8 @@ function renderPanel() {
       const g = cv.getContext('2d');
       if (got) drawCharacter(g, 48, 84, 52, 1000, { sprite: sp, collected: true });
       else {
-        g.fillStyle = '#c9c2b6'; g.beginPath(); g.ellipse(48, 58, 26, 25, 0, 0, Math.PI * 2); g.fill();
-        g.fillStyle = '#fff'; g.font = 'bold 18px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', 48, 60);
+        drawPixel(g, sp, 48, 90, 66, 1000, { silhouette: true }); // S20: 픽셀 실루엣
+        g.fillStyle = '#fff'; g.font = 'bold 18px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', 48, 56);
       }
       el.appendChild(cv);
       const cap = document.createElement('div');
