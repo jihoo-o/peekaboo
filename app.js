@@ -9,6 +9,7 @@
 // S10: 큰 물체는 옆에서 등장(화면 위 여유 없을 때) + 한 번 맞춘 물체는 이후 즉시 등장
 // S11: 짠! 대신 스을쩍 — 물체에 완전히 가려진 위치에서 뒤뚱거리며 걸어 나오고, 중간에 한 번 움찔 물러난다
 // S12: 패럴랙스 — 평소엔 반쯤 숨어 있고, 폰을 옆·위로 움직이면(물체가 화면에서 치우치면) 뒤에 숨은 캐릭터가 더 드러난다
+// S22: 게임 기획 보강 — 코스(여러 개 숨기기, 목표 목록·가장 가까운 목표 자동), 숨기는 사람의 힌트 문구·닉네임·만료·라벨 힌트 허용, 핫/콜드 배너, 타이머·점수·토스트, 캐릭터 대사 말풍선, 내가 숨긴 코스 재공유
 // S21: 숨바꼭질 포맷 — 숨기는 사람이 특정 장소의 특정 물체에 캐릭터를 숨기고(GPS+나침반+물체 라벨을 링크에 담아 공유), 찾는 사람은 링크를 열어 거리·방향 안내를 따라간 뒤 그 물체를 비춰 잡는다. 서버 없음
 // S20: 픽셀 캐릭터 — 원본 에셋이 없을 때의 기본 그림을 다마고치 문법의 22×24 픽셀 스프라이트(pixel.js)로. ?skin=drawn 이면 S17 캔버스 드로잉, ?skin=silhouette 이면 실루엣
 // S19: 원본 에셋을 기기에서 직접 넣기 — 도감 패널의 파일 선택으로 <id>.png / <id>_wave.png 를 IndexedDB에 저장. 저장소에 올리지 않아도 폰에서 바로 원본이 뜬다
@@ -91,6 +92,10 @@ const SPECIES = [
   { id: 'yoroi_pochette', name: '포셰트 갑옷',  jp: '鎧さん（ポシェット）',   group: '갑옷', rarity: 'R', color: '#5B8DD9', tone: '#8B5E3C', objects: ['handbag', 'backpack', 'umbrella', 'suitcase', 'tie'] },
 ];
 const SPRITES = SPECIES; // 기존 호출부 유지
+// S22: 등장·수집 때 말풍선 대사 (원작 말버릇 기준 가칭)
+const LINES = { chiikawa: '…！', hachiware: 'なんとかなれ〜！', usagi: 'ウラ！', momonga: 'なんかちょうだい', kurimanju: 'ハーッ…', shisa: 'はいさー！', rakko: '…よし', furuhonya: '…', dekatsuyo: 'ｸﾞｯ', pajama: '♪', seiren: '〜♪', yoroi_ramen: 'へいらっしゃい', yoroi_info: 'ご案内します', yoroi_pochette: '…ッス' };
+const SCORE_BASE = { C: 100, U: 200, R: 400, L: 800 };
+const SCORE_TIME_BONUS_S = 600; // 10분 안에 찾으면 남은 초만큼 보너스
 const speciesById = (id) => SPECIES.find((s) => s.id === id);
 const isNight = (d = new Date()) => d.getHours() >= 22 || d.getHours() < 5; // 심야 시크릿
 const store = {
@@ -133,8 +138,15 @@ const state = {
   cache: null,                              // seek: 링크에서 읽은 숨김 정보
   geo: null, dist: null, bearing: null,     // 현재 위치, 숨긴 지점까지 거리(m), 방위(북 기준 시계방향)
   geoBypass: false, geoStart: 0,
-  hides: store.get('hides', []),            // 내가 숨긴 것들
+  hides: store.get('hides', []),            // S22: 내가 공유한 코스들 [{id,title,by,caches}]
   finds: store.get('finds', []),            // 내가 찾은 cache id
+  draft: store.get('draft', null),          // S22: 숨기는 중인 코스 {id, by, title, caches:[]}
+  hunt: null,                               // S22: 찾는 중인 코스
+  scores: store.get('scores', []),          // S22: [{cache, sp, sec, score, at}]
+  seekStart: 0,                             // S22: 현재 목표를 잡기 시작한 시각
+  autoTarget: true,                         // S22: 가까운 목표 자동 선택 여부
+  bubble: null,                             // S22: {text, until}
+  toast: null,                              // S22: {text, until}
   scan: { start: 0, seen: {} },             // seen[label] = { n, maxW }
   near: 0,                                  // 0~1 대상 물체와의 가까움(bbox 폭 기준)
   playStart: 0, lastLockAt: 0,              // S14: 힌트 타이머
@@ -470,6 +482,29 @@ const b64u = {
 function encodeCache(c) { return b64u.enc(JSON.stringify(c)); }
 function decodeCache(s) { try { const c = JSON.parse(b64u.dec(s)); return c && c.v === 1 && c.label && c.sp ? c : null; } catch { return null; } }
 function cacheUrl(c) { const u = new URL(location.href); u.search = ''; u.searchParams.set('c', encodeCache(c)); return u.toString(); }
+// S22: 코스(hunt) = 여러 cache. ?h=... 로 공유. 단일 ?c= 는 캐시 1개짜리 코스로 읽는다
+function huntUrl(h) { const u = new URL(location.href); u.search = ''; u.searchParams.set('h', b64u.enc(JSON.stringify(h))); return u.toString(); }
+function decodeHunt(s) { try { const h = JSON.parse(b64u.dec(s)); return h && h.v === 1 && Array.isArray(h.caches) && h.caches.every((c) => c.label && c.sp) ? h : null; } catch { return null; } }
+const newId = () => Math.random().toString(36).slice(2, 8);
+const isExpired = (c) => !!c.exp && Date.now() > c.exp;
+const isFound = (c) => state.finds.includes(c.id);
+function toast(text, ms = 3500) { state.toast = { text, until: performance.now() + ms }; }
+function bubble(text, ms = 2500) { state.bubble = { text, until: performance.now() + ms }; }
+// 코스 안에서 다음 목표: 안 찾았고 안 만료된 것 중 가장 가까운 것(거리 모르면 첫 번째)
+function pickTarget(h) {
+  const open = h.caches.filter((c) => !isFound(c) && !isExpired(c));
+  if (!open.length) return null;
+  if (!state.geo) return open[0];
+  return open.map((c) => [c.lat != null ? haversine(state.geo, c) : 1e12, c]).sort((a, b) => a[0] - b[0])[0][1];
+}
+function setTarget(c) {
+  state.cache = c;
+  state.home = c ? { label: c.label, seen: [c.label], savedAt: c.at, solved: isFound(c), cacheId: c.id,
+    orient: c.heading != null ? { heading: c.heading, pitch: c.pitch ?? 0, abs: true } : null } : null;
+  state.playStart = performance.now(); state.lastLockAt = 0; state.seekStart = performance.now();
+  state.char.state = 'hidden'; state.char.progress = 0; state.lock = null; state.hits = 0;
+  updateDistance();
+}
 function startGeo() {
   if (!navigator.geolocation) return;
   state.geoStart = performance.now();
@@ -492,7 +527,14 @@ function bearingTo(a, b) {
 function updateDistance() {
   const c = state.cache, g = state.geo;
   if (!c || !g || c.lat == null) { state.dist = null; state.bearing = null; return; }
+  // S22: 위치를 처음 알게 되면(또는 아직 멀리 있을 때) 가장 가까운 미발견 목표로 자동 전환. 목록에서 직접 고르면 고정
+  if (state.hunt && state.autoTarget && !state.lock && seekFar()) {
+    const best = pickTarget(state.hunt);
+    if (best && best.id !== c.id) { setTarget(best); return updateDistance(); }
+  }
+  const wasFar = seekFar();
   state.dist = haversine(g, c); state.bearing = bearingTo(g, c);
+  if (wasFar && !seekFar()) { toast('근처예요! 빛나는 물건을 찾아보세요'); try { navigator.vibrate?.([80, 60, 80]); } catch {} } // S22
 }
 // 찾기 모드에서 아직 멀리 있나? (GPS 없이 찾기를 누르면 false)
 function seekFar() {
@@ -519,22 +561,26 @@ function pickSpriteForHide(label) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 // 찾기: cache → home
-function beginSeek(c) {
-  state.mode = 'seek'; state.cache = c; state.phase = 'play';
-  state.home = { label: c.label, seen: [c.label], savedAt: c.at, solved: state.finds.includes(c.id), cacheId: c.id,
-    orient: c.heading != null ? { heading: c.heading, pitch: c.pitch ?? 0, abs: true } : null };
-  state.playStart = performance.now(); state.lastLockAt = 0;
-  updateDistance();
+function beginSeek(h) { // S22: h = hunt
+  state.mode = 'seek'; state.phase = 'play'; state.hunt = h; state.autoTarget = true;
+  const t = pickTarget(h);
+  setTarget(t);
+  if (!t) toast(h.caches.every(isFound) ? '이 코스는 모두 찾았어요 🎉' : '남은 목표가 없어요(만료)', 6000);
 }
 // 찾기 모드 안내 배너(거리·화살표)
 const seekbar = document.getElementById('seekbar');
 function renderSeekbar() {
-  const on = state.mode === 'seek' && detector && (seekFar() || geoStuck());
+  const chip = document.getElementById('tchip'); // S22
+  chip.hidden = !(state.mode === 'seek' && detector && state.hunt);
+  if (!chip.hidden) chip.textContent = `목표 ${state.hunt.caches.filter(isFound).length}/${state.hunt.caches.length}`;
+  const on = state.mode === 'seek' && detector && state.cache && (seekFar() || geoStuck());
   seekbar.hidden = !on; if (!on) return;
   const d = state.dist;
   let txt = d == null ? 'GPS 잡는 중…' : d >= 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d)} m`;
   if (state.geo?.acc > 50) txt += ` (오차 ±${Math.round(state.geo.acc)}m)`;
   seekbar.querySelector('#dist').textContent = txt;
+  // S22: 핫/콜드 — 50m 안 빨강, 150m 안 주황, 그 밖 파랑
+  seekbar.dataset.heat = d == null ? '' : d < 50 ? 'hot' : d < 150 ? 'warm' : 'cold';
   const ar = seekbar.querySelector('#arrow');
   if (state.bearing != null && orient.ok) { ar.hidden = false; ar.style.transform = `rotate(${wrapDeg(state.bearing - orient.heading)}deg)`; }
   else ar.hidden = true;
@@ -775,6 +821,7 @@ function updateCharacter(now) {
   }
   if (confirmed() && (c.state === 'hidden' || c.state === 'hide')) { // S7: 확정되면 충전 시작
     c.sprite = pickSprite(); c.since = now; c.progress = 0; c.seed = Math.floor(Math.random() * 4); // S17: 파자마 멤버 색
+    if (c.state !== 'charging') bubble(LINES[c.sprite.id] ?? '…', 2500); // S22: 즉시 등장이면 바로 대사
     c.state = state.home?.solved ? 'peek' : 'charging'; // S10: 이미 맞춘 물체는 바로 짠!
   }
   const el = now - c.since;
@@ -782,7 +829,7 @@ function updateCharacter(now) {
     case 'charging': // S7: 5초 유지 → peek
       c.progress = 0;
       if (el >= HOLD_MS) {
-        c.state = 'peek'; c.since = now;
+        c.state = 'peek'; c.since = now; bubble(LINES[c.sprite?.id] ?? '…', 3000); // S22
         if (state.home && !state.home.solved) { state.home.solved = true; store.set('home', state.home); } // S10: 정답 확정
       }
       break;
@@ -1350,6 +1397,35 @@ function occlude(p, s, ox, oy, vw, vh) {
   if (sw > 0 && sh > 0) ctx.drawImage(video, sx, sy, sw, sh, ox + sx * s, oy + sy * s, sw * s, sh * s);
 }
 
+// S22: 말풍선(캐릭터 머리 위)과 토스트(화면 중앙 상단)
+function drawBubble(t) {
+  const b = state.bubble; if (!b || t > b.until) { state.bubble = null; return; }
+  const p = characterPlacement(t); const c = state.char;
+  if (!p || c.state === 'hidden' || c.state === 'charging') return;
+  const dpr = canvas.width / canvas.clientWidth, r = p.size / 2;
+  const x = p.cx, y = p.cy - r * 2.05 - 8 * dpr;
+  ctx.save();
+  ctx.font = `bold ${14 * dpr}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(b.text).width + 20 * dpr, h = 26 * dpr;
+  ctx.globalAlpha = Math.min(1, (b.until - t) / 400);
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = '#3B322C'; ctx.lineWidth = 2 * dpr;
+  ctx.beginPath(); ctx.roundRect(x - w / 2, y - h, w, h, h / 2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - 5 * dpr, y); ctx.lineTo(x, y + 7 * dpr); ctx.lineTo(x + 5 * dpr, y); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#3B322C'; ctx.fillText(b.text, x, y - h / 2);
+  ctx.restore();
+}
+function drawToast(t) {
+  const b = state.toast; if (!b || t > b.until) { state.toast = null; return; }
+  const dpr = canvas.width / canvas.clientWidth;
+  ctx.save();
+  ctx.font = `bold ${15 * dpr}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = Math.min(canvas.width - 24 * dpr, ctx.measureText(b.text).width + 28 * dpr), h = 40 * dpr, x = canvas.width / 2, y = canvas.height * 0.36;
+  ctx.globalAlpha = Math.min(1, (b.until - t) / 500);
+  ctx.fillStyle = 'rgba(0,0,0,.72)'; ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2); ctx.fill();
+  ctx.fillStyle = '#ffd54f'; ctx.fillText(b.text, x, y);
+  ctx.restore();
+}
+
 // ---- 렌더 루프 (rAF) ----
 function drawDetections(t) {
   const { s, ox, oy } = coverTransform();
@@ -1385,6 +1461,7 @@ function render(t) {
   state.frameTimes.push(t);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (video.videoWidth) { composite(t); if (params.get('debug') === '1') drawDetections(t); } // S3 → S16: 박스는 ?debug=1일 때만
+  drawBubble(t); drawToast(t); // S22
   updateHint(); // S5
   renderSeekbar(); // S21
   hud.textContent =
@@ -1416,7 +1493,18 @@ function onTap(ev) {
   if (c.sprite && !isCollected(c.sprite.id)) {
     state.collection.push({ id: c.sprite.id, label: state.lock?.label ?? '?', at: Date.now(), night: isNight(), cache: state.cache?.id });
     store.set('collection', state.collection);
-    if (state.cache && !state.finds.includes(state.cache.id)) { state.finds.push(state.cache.id); store.set('finds', state.finds); } // S21
+    if (state.cache && !state.finds.includes(state.cache.id)) { // S21/S22: 찾음 기록 + 점수
+      state.finds.push(state.cache.id); store.set('finds', state.finds);
+      const sec = Math.round((performance.now() - state.seekStart) / 1000);
+      const score = SCORE_BASE[c.sprite.rarity] + Math.max(0, SCORE_TIME_BONUS_S - sec);
+      state.scores.push({ cache: state.cache.id, sp: c.sprite.id, sec, score, at: Date.now() }); store.set('scores', state.scores);
+      const m = Math.floor(sec / 60), s = sec % 60;
+      toast(`찾았다! ${c.sprite.name} · ${m ? m + '분 ' : ''}${s}초 · +${score}점`, 5000);
+      bubble('찾았다!');
+      const left = state.hunt ? state.hunt.caches.filter((x) => !isFound(x) && !isExpired(x)).length : 0;
+      if (left) setTimeout(() => { state.autoTarget = true; setTarget(pickTarget(state.hunt)); toast(`다음 목표로! 남은 ${left}개`, 4000); }, 4500);
+      else if (state.hunt) setTimeout(() => toast('코스 완료! 🎉 도감에서 점수를 확인하세요', 6000), 4500);
+    } else if (state.cache) toast('이미 찾은 캐릭터예요', 2500);
     c.state = 'collect'; c.since = performance.now();
     renderBadge();
   } else { c.state = 'wave'; c.since = performance.now(); }
@@ -1467,8 +1555,14 @@ function updateHint() {
     hideBtn.hidden = !(state.lock && confirmed()) || !hidecard.hidden;
     return;
   }
-  if (state.mode === 'seek' && seekFar()) { // S21
-    text = state.dist == null ? '숨긴 곳의 위치를 확인하는 중…' : '화살표 방향으로 이동하세요. 가까워지면 물건이 빛나요';
+  if (state.mode === 'seek' && !state.cache) { // S22: 목표 없음
+    text = state.hunt?.caches.every(isFound) ? '이 코스의 캐릭터를 모두 찾았어요 🎉' : '남은 목표가 없어요';
+    if (msg.textContent !== text) msg.textContent = text;
+    return;
+  }
+  if (state.mode === 'seek' && seekFar()) { // S21/S22
+    const hh = state.cache?.hint ? ` · 힌트: ${state.cache.hint}` : '';
+    text = (state.dist == null ? '숨긴 곳의 위치를 확인하는 중…' : '화살표 방향으로 이동하세요. 가까워지면 물건이 빛나요') + hh;
     if (msg.textContent !== text) msg.textContent = text;
     return;
   }
@@ -1483,9 +1577,11 @@ function updateHint() {
     const cand = seen.length > 1 ? ` 스캔에서 본 ${seen.length}개(${seen.join(', ')}) 중 하나예요.` : '';
     const waited = performance.now() - Math.max(state.playStart, state.lastLockAt);
     const e = state.edge, dirOn = e && (e.left || e.right || e.top || e.bottom);
-    const hint = state.home && waited > HINT_AFTER_MS ? ` 힌트: ${state.home.label} 근처를 비춰보세요`
+    const allowLabel = !state.cache?.nohint; // S22: 숨긴 사람이 라벨 힌트를 막을 수 있다
+    const hint = state.home && waited > HINT_AFTER_MS && allowLabel ? ` 힌트: ${state.home.label} 근처를 비춰보세요`
       : dirOn ? ' 빛나는 가장자리 쪽으로 카메라를 돌려보세요' : ' 빛나는 물건을 찾아보세요';
-    text = base + cand + hint;
+    const hh = state.cache?.hint ? ` (${state.cache.hint})` : '';
+    text = base + cand + hint + hh;
   }
   else if (c.state === 'hidden' || c.state === 'hide') text = state.home?.solved ? '' : state.near < 0.5 ? '빛이 보여요! 더 가까이…' : '여기다! 가만히 비춰보세요';
   else if (c.state === 'charging') text = `뭔가 나올 것 같아… (${Math.max(0, Math.ceil((HOLD_MS - (performance.now() - c.since)) / 1000))})`;
@@ -1528,6 +1624,8 @@ function renderPanel() {
     }
     group.appendChild(grid); slots.appendChild(group);
   }
+  const total = state.scores.reduce((a, s) => a + s.score, 0); // S22
+  panel.querySelector('#score').textContent = state.scores.length ? `숨바꼭질 점수 ${total}점 · 찾은 캐릭터 ${state.scores.length}` : '숨바꼭질 점수 없음 — 링크로 찾기를 해보세요';
   panel.querySelector('#skinstat').textContent = `원본 그림 ${state.skins?.length ?? 0}/${SPECIES.length}` + (state.localSkins ? ` (기기 저장 ${state.localSkins}파일)` : ''); // S19
   panel.querySelector('#home').textContent = state.home
     ? `숨은 곳: ${state.home.solved ? state.home.label + ' (맞춤!)' : '??? (빛나는 물건을 찾아보세요)'} · 스캔에서 본 물체: ${(state.home.seen ?? [state.home.label]).join(', ')}`
@@ -1561,37 +1659,110 @@ panel.querySelector('#reset').addEventListener('click', () => {
 const hideBtn = document.getElementById('hidebtn');
 const hidecard = document.getElementById('hidecard');
 let pendingCache = null;
+function draft() { // S22: 숨기는 중인 코스
+  if (!state.draft) { state.draft = { v: 1, id: newId(), by: store.get('by', ''), title: '', caches: [] }; store.set('draft', state.draft); }
+  return state.draft;
+}
+function applyCardFields(c) { // 카드 입력값을 cache에 반영
+  c.hint = hidecard.querySelector('#hc-hint').value.trim().slice(0, 40) || undefined;
+  c.nohint = hidecard.querySelector('#hc-nohint').checked || undefined;
+  const days = +hidecard.querySelector('#hc-exp').value; c.exp = days ? Date.now() + days * 864e5 : undefined;
+  const by = hidecard.querySelector('#hc-by').value.trim().slice(0, 12); draft().by = by; store.set('by', by);
+}
+function currentHunt(c) { // 지금 카드의 cache까지 포함한 코스
+  const d = draft(); const caches = d.caches.some((x) => x.id === c.id) ? d.caches : [...d.caches, c];
+  return { v: 1, id: d.id, by: d.by || undefined, title: d.title || undefined, caches };
+}
 function showHideCard(c) {
   pendingCache = c;
-  const sp = speciesById(c.sp);
+  const sp = speciesById(c.sp), d = draft();
   hidecard.querySelector('#hc-sp').textContent = `${sp.name} · ${c.label} 뒤`;
   hidecard.querySelector('#hc-geo').textContent = c.lat != null ? `위치 저장됨 (오차 ±${c.acc}m)${c.heading != null ? ' · 방향 저장됨' : ''}` : '위치 없음 (GPS 미허용) — 링크로만 찾을 수 있어요';
-  hidecard.querySelector('#hc-url').value = cacheUrl(c);
+  hidecard.querySelector('#hc-by').value = d.by || '';
+  if (!c.hint) { hidecard.querySelector('#hc-hint').value = ''; hidecard.querySelector('#hc-nohint').checked = false; } // 스팟마다 힌트는 새로
+  hidecard.querySelector('#hc-count').textContent = `이 코스: ${d.caches.length + (d.caches.some((x) => x.id === c.id) ? 0 : 1)}개`;
+  hidecard.querySelector('#hc-url').value = huntUrl(currentHunt(c));
+  hidecard.querySelector('#hc-msg').textContent = '';
   hidecard.hidden = false; hideBtn.hidden = true;
+}
+function addToDraft(c) {
+  applyCardFields(c);
+  const d = draft(); if (!d.caches.some((x) => x.id === c.id)) d.caches.push(c); store.set('draft', d);
+  return d;
 }
 hideBtn.addEventListener('click', () => { const c = makeCache(); if (c) showHideCard(c); });
 hidecard.querySelector('#hc-reroll').addEventListener('click', () => { if (!pendingCache) return; pendingCache.sp = pickSpriteForHide(pendingCache.label).id; showHideCard(pendingCache); });
+async function shareHunt(h, msgEl) { // S22: 코스 링크 공유(공유 시트 → 클립보드 순)
+  const url = huntUrl(h), n = h.caches.length;
+  if (!state.hides.some((x) => x.id === h.id)) state.hides.push(h); else state.hides = state.hides.map((x) => (x.id === h.id ? h : x));
+  store.set('hides', state.hides);
+  const text = n > 1 ? `먼작귀 ${n}마리를 숨겼어요. 찾아보세요!` : `${speciesById(h.caches[0].sp).name}를 숨겼어요. 찾아보세요!`;
+  try {
+    if (navigator.share) await navigator.share({ title: 'Peekaboo 숨바꼭질', text, url });
+    else { await navigator.clipboard.writeText(url); if (msgEl) msgEl.textContent = '링크를 복사했어요'; }
+  } catch (e) { if (e.name !== 'AbortError') { try { await navigator.clipboard.writeText(url); if (msgEl) msgEl.textContent = '링크를 복사했어요'; } catch { if (msgEl) msgEl.textContent = '링크를 길게 눌러 복사하세요'; } } }
+}
 hidecard.querySelector('#hc-share').addEventListener('click', async () => {
   const c = pendingCache; if (!c) return;
-  const url = cacheUrl(c);
-  if (!state.hides.some((h) => h.id === c.id)) { state.hides.push(c); store.set('hides', state.hides); }
-  try {
-    if (navigator.share) await navigator.share({ title: 'Peekaboo 숨바꼭질', text: `${speciesById(c.sp).name}를 숨겼어요. 찾아보세요!`, url });
-    else { await navigator.clipboard.writeText(url); hidecard.querySelector('#hc-msg').textContent = '링크를 복사했어요'; }
-  } catch (e) { if (e.name !== 'AbortError') { try { await navigator.clipboard.writeText(url); hidecard.querySelector('#hc-msg').textContent = '링크를 복사했어요'; } catch { hidecard.querySelector('#hc-msg').textContent = '아래 링크를 길게 눌러 복사하세요'; } } }
+  const d = addToDraft(c);
+  await shareHunt({ v: 1, id: d.id, by: d.by || undefined, title: d.title || undefined, caches: d.caches }, hidecard.querySelector('#hc-msg'));
+  renderMenu();
 });
+hidecard.querySelector('#hc-more').addEventListener('click', () => { // 하나 더 숨기기: 코스에 넣고 카드 닫기
+  const c = pendingCache; if (!c) return;
+  const d = addToDraft(c);
+  hidecard.hidden = true; pendingCache = null; state.lock = null; state.hits = 0;
+  toast(`코스에 추가 (${d.caches.length}개). 다음 물건을 비춰보세요`, 3500);
+});
+hidecard.querySelector('#hc-hint').addEventListener('input', () => { if (pendingCache) { applyCardFields(pendingCache); hidecard.querySelector('#hc-url').value = huntUrl(currentHunt(pendingCache)); } });
 hidecard.querySelector('#hc-close').addEventListener('click', () => { hidecard.hidden = true; pendingCache = null; });
+// S22: 시작 메뉴 — 진행 중 코스·내가 숨긴 코스 재공유·점수
+function renderMenu() {
+  const d = state.draft, el = document.getElementById('m-draft');
+  el.hidden = !(d && d.caches.length);
+  if (d && d.caches.length) el.querySelector('span').textContent = `숨기는 중인 코스: ${d.caches.length}개`;
+  const list = document.getElementById('m-hides'); list.innerHTML = '';
+  for (const h of state.hides.slice(-5).reverse()) {
+    const row = document.createElement('div'); row.className = 'hrow';
+    const found = h.caches.filter(isFound).length;
+    row.innerHTML = `<span>${h.caches.length}마리 · ${new Date(h.caches[0]?.at ?? Date.now()).toLocaleDateString()}${h.by ? ' · ' + h.by : ''}</span>`;
+    const b = document.createElement('button'); b.textContent = '다시 공유'; b.addEventListener('click', () => shareHunt(h, null)); row.appendChild(b);
+    list.appendChild(row);
+  }
+  document.getElementById('m-hides-wrap').hidden = !state.hides.length;
+  const total = state.scores.reduce((a, s) => a + s.score, 0);
+  document.getElementById('m-score').textContent = state.scores.length ? `찾은 캐릭터 ${state.scores.length} · 총 ${total}점` : '';
+}
+document.getElementById('m-draft-share').addEventListener('click', () => { const d = state.draft; if (d?.caches.length) shareHunt({ v: 1, id: d.id, by: d.by || undefined, caches: d.caches }, null); });
+document.getElementById('m-draft-new').addEventListener('click', () => { if (confirm('숨기는 중인 코스를 비우고 새로 시작할까요?')) { state.draft = null; store.set('draft', null); renderMenu(); } });
+renderMenu();
 document.getElementById('bypass').addEventListener('click', () => { state.geoBypass = true; });
+// S22: 목표 목록(코스) — 배너의 칩을 누르면 목록, 항목을 누르면 목표 변경
+const targets = document.getElementById('targets');
+function renderTargets() {
+  const h = state.hunt; if (!h) return;
+  const list = targets.querySelector('#tlist'); list.innerHTML = '';
+  h.caches.forEach((c, i) => {
+    const row = document.createElement('div'); row.className = 'trow' + (isFound(c) ? ' found' : '') + (state.cache?.id === c.id ? ' cur' : '');
+    const d = state.geo && c.lat != null ? haversine(state.geo, c) : null;
+    row.innerHTML = `<b>${i + 1}</b> <span>${isFound(c) ? speciesById(c.sp).name + ' ✓' : '???'} · ${c.label} 뒤${c.hint ? ' · ' + c.hint : ''}${isExpired(c) ? ' · 만료' : ''}</span><em>${d == null ? '' : d >= 1000 ? (d / 1000).toFixed(1) + 'km' : Math.round(d) + 'm'}</em>`;
+    if (!isFound(c) && !isExpired(c)) row.addEventListener('click', () => { state.autoTarget = false; setTarget(c); targets.hidden = true; toast(`목표 ${i + 1}번으로`, 2000); });
+    list.appendChild(row);
+  });
+  targets.querySelector('#tsum').textContent = `찾음 ${h.caches.filter(isFound).length} / ${h.caches.length}`;
+}
+document.getElementById('tchip').addEventListener('click', () => { renderTargets(); targets.hidden = !targets.hidden; });
+targets.addEventListener('click', (e) => { if (e.target === targets) targets.hidden = true; });
 
 // ---- 시작 ----
 async function main(mode = 'scan') {
   document.getElementById('menu').hidden = true;
   state.mode = mode;
-  if (mode === 'seek' && !state.cache) { // 링크 붙여넣기
-    const txt = prompt('숨긴 사람에게 받은 링크를 붙여넣으세요') ?? '';
-    let c = null; try { c = decodeCache(new URL(txt.trim()).searchParams.get('c') ?? txt.trim()); } catch { c = decodeCache(txt.trim()); }
-    if (!c) { alert('링크를 읽을 수 없어요'); document.getElementById('menu').hidden = false; return; }
-    beginSeek(c);
+  if (mode === 'seek' && !state.hunt) { // 링크 붙여넣기 (S22: ?h= 코스 또는 ?c= 단일)
+    const txt = (prompt('숨긴 사람에게 받은 링크를 붙여넣으세요') ?? '').trim();
+    const h = parseHuntFromText(txt);
+    if (!h) { alert('링크를 읽을 수 없어요'); document.getElementById('menu').hidden = false; return; }
+    beginSeek(h);
   }
   if (mode === 'hide') { state.phase = 'play'; state.home = null; state.cache = null; }
   if (mode === 'scan') state.cache = null;
@@ -1618,8 +1789,19 @@ async function main(mode = 'scan') {
 
 requestAnimationFrame(render);
 // S21: 시작 메뉴. ?c=... 링크로 열면 바로 찾기 모드
-const CACHE_FROM_URL = params.get('c') ? decodeCache(params.get('c')) : null;
-if (CACHE_FROM_URL) { beginSeek(CACHE_FROM_URL); document.getElementById('menu-title').textContent = `${speciesById(CACHE_FROM_URL.sp)?.name ?? '먼작귀'}가 ${CACHE_FROM_URL.label} 뒤에 숨어 있어요`; }
+function parseHuntFromText(txt) { // S22: URL 또는 토큰 → 코스
+  let h = null, c = null;
+  try { const u = new URL(txt); h = u.searchParams.get('h') ? decodeHunt(u.searchParams.get('h')) : null; c = u.searchParams.get('c') ? decodeCache(u.searchParams.get('c')) : null; }
+  catch { h = decodeHunt(txt); c = h ? null : decodeCache(txt); }
+  if (!h && c) h = { v: 1, id: c.id, caches: [c] };
+  return h;
+}
+const HUNT_FROM_URL = params.get('h') ? decodeHunt(params.get('h')) : params.get('c') ? parseHuntFromText(location.href) : null;
+if (HUNT_FROM_URL) {
+  beginSeek(HUNT_FROM_URL);
+  const n = HUNT_FROM_URL.caches.length, found = HUNT_FROM_URL.caches.filter(isFound).length;
+  document.getElementById('menu-title').textContent = n > 1 ? `먼작귀 ${n}마리가 숨어 있어요 (찾음 ${found})${HUNT_FROM_URL.by ? ' · by ' + HUNT_FROM_URL.by : ''}` : `${speciesById(HUNT_FROM_URL.caches[0].sp)?.name ?? '먼작귀'}가 ${HUNT_FROM_URL.caches[0].label} 뒤에 숨어 있어요${HUNT_FROM_URL.by ? ' · by ' + HUNT_FROM_URL.by : ''}`;
+}
 document.getElementById('m-hide').addEventListener('click', () => main('hide'));
 document.getElementById('m-seek').addEventListener('click', () => main('seek'));
 document.getElementById('m-scan').addEventListener('click', () => main('scan'));

@@ -45,7 +45,25 @@
     #hidecard #hc-sp { font-size: 16px; font-weight: 700; }
     #hidecard #hc-geo, #hidecard #hc-msg { font-size: 12px; color: #666; }
     #hidecard textarea { width: 100%; box-sizing: border-box; font-size: 11px; color: #555; border: 1px solid #ddd; border-radius: 8px; padding: 6px; }
-    #hidecard .row { display: flex; gap: 8px; } #hidecard .row button { flex: 1; }
+    #hidecard .row { display: flex; gap: 8px; } #hidecard .row button, #hidecard .row input, #hidecard .row select { flex: 1; min-width: 0; }
+    /* S22 */
+    #hidecard input, #hidecard select { padding: 9px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; box-sizing: border-box; width: 100%; }
+    #hidecard .chk { font-size: 12px; color: #555; display: flex; align-items: center; gap: 6px; }
+    #hidecard #hc-count { font-size: 12px; color: #4a3700; background: #fff3d6; padding: 4px 8px; border-radius: 8px; align-self: flex-start; }
+    #seekbar[data-heat="hot"] { background: rgba(200,40,40,.85); } #seekbar[data-heat="warm"] { background: rgba(230,120,20,.85); } #seekbar[data-heat="cold"] { background: rgba(30,80,180,.8); }
+    #tchip { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 200px); right: 8px; z-index: 4; padding: 8px 12px; border: 0; border-radius: 999px; background: rgba(0,0,0,.6); color: #fff; font-size: 13px; font-weight: 700; }
+    #tchip[hidden], #targets[hidden], #m-draft[hidden], #m-hides-wrap[hidden] { display: none; }
+    #targets { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.55); }
+    #targets .card { background: #fff; border-radius: 16px; padding: 16px; width: min(92vw, 380px); color: #222; max-height: 80vh; overflow-y: auto; }
+    #targets h2 { margin: 0 0 4px; font-size: 18px; } #targets #tsum { font-size: 13px; color: #666; margin-bottom: 8px; }
+    .trow { display: flex; gap: 8px; align-items: center; padding: 10px; border-radius: 10px; background: #f4f4f4; margin-bottom: 6px; font-size: 13px; }
+    .trow b { color: #4a3700; background: #ffd54f; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+    .trow span { flex: 1; } .trow em { font-style: normal; color: #888; } .trow.found { opacity: .55; } .trow.cur { outline: 2px solid #ffd54f; }
+    #targets small { color: #888; font-size: 11px; }
+    .mrow { display: flex; gap: 6px; align-items: center; font-size: 13px; background: #fff3d6; padding: 8px 10px; border-radius: 10px; }
+    .mrow span { flex: 1; } .mrow button { padding: 6px 10px !important; font-size: 12px !important; }
+    .mlabel { font-size: 12px; color: #888; }
+    .hrow { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #444; padding: 4px 0; } .hrow span { flex: 1; } .hrow button { padding: 5px 10px !important; font-size: 12px !important; }
     /* S5: 셔터 버튼 */
     #shutter {
       position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 28px); transform: translateX(-50%);
@@ -99,18 +117,28 @@
         <button id="m-seek" class="primary">찾기 — 받은 링크로 시작</button>
         <button id="m-hide">숨기기 — 물건 뒤에 캐릭터 숨기기</button>
         <button id="m-scan" class="ghost">혼자 놀기 (주변 스캔)</button>
+        <div id="m-draft" class="mrow" hidden><span></span><button id="m-draft-share">공유</button><button id="m-draft-new" class="ghost">새 코스</button></div>
+        <div id="m-hides-wrap" hidden><div class="mlabel">내가 숨긴 코스</div><div id="m-hides"></div></div>
+        <div id="m-score" class="mlabel"></div>
         <small>카메라·위치·나침반 권한을 허용해 주세요</small>
       </div>
     </div>
     <div id="seekbar" hidden><span id="arrow">➤</span><span id="dist"></span><button id="bypass" hidden>GPS 없이 찾기</button></div>
+    <button id="tchip" hidden>목표 0/0</button>
+    <div id="targets" hidden><div class="card"><h2>이 코스의 목표</h2><div id="tsum"></div><div id="tlist"></div><small>항목을 누르면 그 목표로 바꿉니다</small></div></div>
     <button id="hidebtn" hidden>여기 숨기기</button>
     <div id="hidecard" hidden>
       <div class="card">
         <h2>숨겼어요!</h2>
         <div id="hc-sp"></div>
         <div id="hc-geo"></div>
-        <textarea id="hc-url" readonly rows="3"></textarea>
-        <div class="row"><button id="hc-share" class="primary">링크 공유</button><button id="hc-reroll">다른 캐릭터</button></div>
+        <input id="hc-hint" maxlength="40" placeholder="힌트 문구 (선택) 예: 창가 자리 노란 컵" />
+        <div class="row"><input id="hc-by" maxlength="12" placeholder="내 닉네임 (선택)" /><select id="hc-exp"><option value="0">만료 없음</option><option value="1">1일 후 만료</option><option value="7">7일 후 만료</option><option value="30">30일 후 만료</option></select></div>
+        <label class="chk"><input id="hc-nohint" type="checkbox" /> 20초 뒤 물체 이름 힌트를 주지 않기 (어렵게)</label>
+        <div id="hc-count"></div>
+        <textarea id="hc-url" readonly rows="2"></textarea>
+        <div class="row"><button id="hc-share" class="primary">코스 링크 공유</button><button id="hc-more">하나 더 숨기기</button></div>
+        <div class="row"><button id="hc-reroll" class="ghost">다른 캐릭터</button></div>
         <div id="hc-msg"></div>
         <button id="hc-close" class="ghost">닫기</button>
       </div>
@@ -121,6 +149,7 @@
       <div class="card">
         <h2>먼작귀 도감</h2>
         <div id="home"></div>
+        <div id="score" class="mlabel"></div>
         <div id="slots"></div>
         <div id="skins">
           <div id="skinstat"></div>
